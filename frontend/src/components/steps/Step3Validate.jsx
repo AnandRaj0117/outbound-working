@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { styles } from "../../styles/dashboardStyles";
 import { ErrorBox, MessageBox } from "../MessageBoxes";
+import FailureDetailsModal from "../FailureDetailsModal";
 
 export default function Step3Validate({ campaign, uploadResult, onBack, onContinue, setValidationResult }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [showFailureModal, setShowFailureModal] = useState(false);
 
   const handleValidateData = async () => {
     if (!uploadResult || uploadResult.uploaded === 0) {
@@ -39,7 +41,9 @@ export default function Step3Validate({ campaign, uploadResult, onBack, onContin
           validated: data.validated,
           failed: data.failed,
           total: data.total,
-          results: data.results || []
+          results: data.results || [],
+          failedRecords: data.failedRecords || [],
+          failedRows: data.failedRows || []
         });
 
         if (data.failed === 0) {
@@ -80,10 +84,23 @@ export default function Step3Validate({ campaign, uploadResult, onBack, onContin
         </div>
         {uploadResult.failed > 0 && (
           <div style={{ ...styles.stat, color: '#dc2626' }}>
-            <strong>❌ Failed:</strong> {uploadResult.failed} rows
-            {uploadResult.failedRows && uploadResult.failedRows.length > 0 &&
-              ` (${uploadResult.failedRows.join(", ")})`
-            }
+            <strong>❌ Failed:</strong> {uploadResult.failed} row(s)
+            {uploadResult.failedRecords && uploadResult.failedRecords.length > 0 && (
+              <>
+                {' - '}
+                <span
+                  onClick={() => setShowFailureModal(true)}
+                  style={{
+                    color: '#7c3aed',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    fontWeight: '600'
+                  }}
+                >
+                  View Details
+                </span>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -112,6 +129,13 @@ export default function Step3Validate({ campaign, uploadResult, onBack, onContin
           🔄 Start Over
         </button>
       </div>
+
+      {/* Failure Details Modal */}
+      <FailureDetailsModal
+        isOpen={showFailureModal}
+        onClose={() => setShowFailureModal(false)}
+        failedRecords={uploadResult.failedRecords || []}
+      />
     </div>
   );
 }

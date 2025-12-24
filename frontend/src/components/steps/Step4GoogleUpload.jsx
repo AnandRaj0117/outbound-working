@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { styles } from "../../styles/dashboardStyles";
 import { ErrorBox, MessageBox, SuccessBox } from "../MessageBoxes";
+import FailureDetailsModal from "../FailureDetailsModal";
 
 export default function Step4GoogleUpload({ campaign, validationResult, onBack, setValidationResult }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [showFailureModal, setShowFailureModal] = useState(false);
 
   const handleUploadToGoogle = async () => {
     if (!validationResult || validationResult.validated === 0) {
@@ -69,10 +71,23 @@ export default function Step4GoogleUpload({ campaign, validationResult, onBack, 
         </div>
         {validationResult.failed > 0 && (
           <div style={{ ...styles.stat, color: '#dc2626' }}>
-            <strong>❌ Failed:</strong> {validationResult.failed} records
-            {validationResult.failedRows && validationResult.failedRows.length > 0 &&
-              ` (${validationResult.failedRows.join(", ")})`
-            }
+            <strong>❌ Failed:</strong> {validationResult.failed} record(s)
+            {validationResult.failedRecords && validationResult.failedRecords.length > 0 && (
+              <>
+                {' - '}
+                <span
+                  onClick={() => setShowFailureModal(true)}
+                  style={{
+                    color: '#7c3aed',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    fontWeight: '600'
+                  }}
+                >
+                  View Details
+                </span>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -115,6 +130,13 @@ export default function Step4GoogleUpload({ campaign, validationResult, onBack, 
           🔄 Start New Upload
         </button>
       </div>
+
+      {/* Failure Details Modal */}
+      <FailureDetailsModal
+        isOpen={showFailureModal}
+        onClose={() => setShowFailureModal(false)}
+        failedRecords={validationResult.failedRecords || []}
+      />
     </div>
   );
 }

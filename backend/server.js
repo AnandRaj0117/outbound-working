@@ -193,27 +193,43 @@ app.post(
         return mapped;
       };
 
-      // Transform and filter rows with customerId
-      let transformedRows = rawRows
-        .map(normalizeRow)
-        .filter((r) => r.customerId)
-        .map((r) => {
-          const customerId = String(r.customerId).trim();
-          const rowCampaignId =
-            r.campaignId != null ? String(r.campaignId).trim() : null;
-          const rowCampaignName =
-            r.campaignName != null ? String(r.campaignName).trim() : null;
+      // Track failed records with detailed reasons
+      const failedRecords = [];
 
-          return {
-            customerId,
-            campaignId: rowCampaignId,
-            campaignName: rowCampaignName,
-            DNC: isDNCSelected ? true : null,
-            uploadedBy: uploadedBy || null,
-            uploadedAt: new Date(),
-            isActive: true,
-          };
+      // Transform rows and track failures
+      let transformedRows = [];
+      rawRows.forEach((rawRow, index) => {
+        const normalizedRow = normalizeRow(rawRow);
+        const rowNumber = index + 2; // +2 because Excel is 1-indexed and row 1 is header
+
+        // Check if customerId is missing
+        if (!normalizedRow.customerId) {
+          failedRecords.push({
+            row: rowNumber,
+            reason: 'Missing required field: customerId',
+            data: rawRow
+          });
+          return; // Skip this row
+        }
+
+        const customerId = String(normalizedRow.customerId).trim();
+        const rowCampaignId =
+          normalizedRow.campaignId != null ? String(normalizedRow.campaignId).trim() : null;
+        const rowCampaignName =
+          normalizedRow.campaignName != null ? String(normalizedRow.campaignName).trim() : null;
+
+        transformedRows.push({
+          customerId,
+          campaignId: rowCampaignId,
+          campaignName: rowCampaignName,
+          DNC: isDNCSelected ? true : null,
+          uploadedBy: uploadedBy || null,
+          uploadedAt: new Date(),
+          isActive: true,
+          _originalRow: rawRow,
+          _rowNumber: rowNumber
         });
+      });
 
       // ----- 2. COUNT BEFORE DEDUPLICATION -----
       const totalUploaded = transformedRows.length;
@@ -231,20 +247,28 @@ app.post(
       // ----- 4. NOW Remove duplicates by customerId -----
       const seen = new Set();
       const uniqueRows = [];
-      const duplicateRows = [];
 
       for (const row of transformedRows) {
         if (!row.customerId) continue;
         if (seen.has(row.customerId)) {
-          duplicateRows.push(row);
+          // Track duplicate with details
+          failedRecords.push({
+            row: row._rowNumber,
+            reason: 'Duplicate customerId',
+            data: row._originalRow
+          });
           continue;
         }
         seen.add(row.customerId);
-        uniqueRows.push(row);
+
+        // Remove temporary tracking fields before saving
+        const { _originalRow, _rowNumber, ...cleanRow } = row;
+        uniqueRows.push(cleanRow);
       }
 
       const totalValidatedData = uniqueRows.length;
       console.log(`✅ Total rows after dedup: ${totalValidatedData}`);
+      console.log(`❌ Total failed records: ${failedRecords.length}`);
 
       // ----- 5. Update campaign_selections with counts -----
       const campaignSelectionRef = firestore.collection('campaign_selections').doc(String(campaignId));
@@ -299,13 +323,14 @@ app.post(
       return res.status(200).json({
         success: true,
         uploaded: totalValidatedData,
-        total: totalUploaded,
-        failed: duplicateRows.length,
-        failedRows: duplicateRows.map((_, idx) => idx + 1),
+        total: totalUploaded + failedRecords.length, // Include all rows from file
+        failed: failedRecords.length,
+        failedRows: failedRecords.map((f) => f.row), // For backward compatibility
+        failedRecords: failedRecords, // Detailed failure information
         fileUrl,
-        totalRecordsInFile: totalUploaded,
+        totalRecordsInFile: totalUploaded + failedRecords.length,
         uniqueRecordsSaved: totalValidatedData,
-        duplicateCount: duplicateRows.length,
+        duplicateCount: failedRecords.filter(f => f.reason.includes('Duplicate')).length,
         dncApplied: !!isDNCSelected,
         campaignId: campaignId,
         validatedDataSaved: savedDocIds.length
@@ -392,11 +417,33 @@ async function getCustomerPhone(customerId, token) {
     };
   } catch (error) {
     console.error(`❌ Error fetching phone for customer ${customerId}:`, error.message);
+
+    // Generate user-friendly error message
+    let userFriendlyError = 'API validation failed';
+    const statusCode = error.response?.status;
+
+    if (statusCode === 404) {
+      userFriendlyError = 'Customer ID does not exist';
+    } else if (statusCode === 401 || statusCode === 403) {
+      userFriendlyError = 'Authentication error';
+    } else if (statusCode === 400) {
+      userFriendlyError = 'Invalid customer ID format';
+    } else if (statusCode === 500 || statusCode === 502 || statusCode === 503) {
+      userFriendlyError = 'Customer API server error';
+    } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      userFriendlyError = 'API request timeout';
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      userFriendlyError = 'Cannot connect to customer API';
+    } else if (!error.response) {
+      userFriendlyError = 'Network error - no response from API';
+    }
+
     return {
       success: false,
       customerId,
-      error: error.message,
-      status: error.response?.status
+      error: userFriendlyError,
+      technicalError: error.message,
+      status: statusCode
     };
   }
 }
@@ -447,19 +494,32 @@ app.post('/api/campaigns/validate-customers', async (req, res) => {
 
     // Process each customer record
     const results = [];
+    const failedRecords = [];
     let successCount = 0;
     let failCount = 0;
+    let recordIndex = 0;
 
     // Use batch for Firestore updates
     let batch = firestore.batch();
     let batchCount = 0;
 
     for (const doc of snapshot.docs) {
+      recordIndex++;
       const data = doc.data();
       const customerId = data.customerId;
 
       if (!customerId) {
         failCount++;
+        failedRecords.push({
+          row: recordIndex,
+          reason: 'Missing customerId',
+          data: {
+            customerId: customerId || 'N/A',
+            campaignId: data.campaignId,
+            campaignName: data.campaignName,
+            uploadedBy: data.uploadedBy
+          }
+        });
         continue;
       }
 
@@ -493,10 +553,31 @@ app.post('/api/campaigns/validate-customers', async (req, res) => {
         }
       } else {
         failCount++;
+
+        // Determine appropriate error message
+        let failureReason;
+        if (phoneResult.success && !phoneResult.phone) {
+          // API succeeded but no phone number in response
+          failureReason = 'Phone number not available for customer';
+        } else {
+          // API failed - use the user-friendly error we set
+          failureReason = phoneResult.error || 'API validation failed';
+        }
+
+        failedRecords.push({
+          row: recordIndex,
+          reason: failureReason,
+          data: {
+            customerId: customerId,
+            campaignId: data.campaignId,
+            campaignName: data.campaignName,
+            uploadedBy: data.uploadedBy
+          }
+        });
         results.push({
           customerId: customerId,
           status: 'failed',
-          error: phoneResult.error
+          error: failureReason
         });
       }
     }
@@ -526,6 +607,8 @@ app.post('/api/campaigns/validate-customers', async (req, res) => {
       total: snapshot.size,
       validated: successCount,
       failed: failCount,
+      failedRecords: failedRecords, // Detailed failure information
+      failedRows: failedRecords.map(f => f.row), // For backward compatibility
       results: results.slice(0, 10) // Return first 10 for preview
     });
 
