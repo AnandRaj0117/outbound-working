@@ -5,7 +5,7 @@ import { styles } from "../../styles/dashboardStyles";
 import { ErrorBox, MessageBox, SuccessBox } from "../MessageBoxes";
 import FailureDetailsModal from "../FailureDetailsModal";
 
-export default function Step4GoogleUpload({ campaign, validationResult, onBack, setValidationResult }) {
+export default function Step4GoogleUpload({ campaign, dncEnabled, validationResult, onBack, setValidationResult }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -60,6 +60,21 @@ export default function Step4GoogleUpload({ campaign, validationResult, onBack, 
         <span>🚀</span>
         Step 4: Upload to Google CCAIP
       </h2>
+
+      <div style={styles.infoBox}>
+        <div style={styles.infoRow}>
+          <strong>Campaign ID:</strong>
+          <span>{campaign.id}</span>
+        </div>
+        <div style={styles.infoRow}>
+          <strong>Campaign Name:</strong>
+          <span>{campaign.name}</span>
+        </div>
+        <div style={styles.infoRow}>
+          <strong>DNC Check:</strong>
+          <span>{dncEnabled ? "Enabled" : "Disabled"}</span>
+        </div>
+      </div>
 
       <div style={styles.resultBox}>
         <h3 style={styles.resultTitle}>

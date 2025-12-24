@@ -45,6 +45,7 @@ export default function Dashboard({ user }) {
         {step === 3 && (
           <Step3Validate
             campaign={campaign}
+            dncEnabled={dncEnabled}
             uploadResult={uploadResult}
             onBack={() => setStep(2)}
             onContinue={() => setStep(4)}
@@ -55,6 +56,7 @@ export default function Dashboard({ user }) {
         {step === 4 && (
           <Step4GoogleUpload
             campaign={campaign}
+            dncEnabled={dncEnabled}
             validationResult={validationResult}
             onBack={() => setStep(3)}
             setValidationResult={setValidationResult}

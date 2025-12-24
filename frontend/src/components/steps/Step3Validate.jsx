@@ -5,7 +5,7 @@ import { styles } from "../../styles/dashboardStyles";
 import { ErrorBox, MessageBox } from "../MessageBoxes";
 import FailureDetailsModal from "../FailureDetailsModal";
 
-export default function Step3Validate({ campaign, uploadResult, onBack, onContinue, setValidationResult }) {
+export default function Step3Validate({ campaign, dncEnabled, uploadResult, onBack, onContinue, setValidationResult }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -74,6 +74,21 @@ export default function Step3Validate({ campaign, uploadResult, onBack, onContin
         Step 3: Validate Data
       </h2>
 
+      <div style={styles.infoBox}>
+        <div style={styles.infoRow}>
+          <strong>Campaign ID:</strong>
+          <span>{campaign.id}</span>
+        </div>
+        <div style={styles.infoRow}>
+          <strong>Campaign Name:</strong>
+          <span>{campaign.name}</span>
+        </div>
+        <div style={styles.infoRow}>
+          <strong>DNC Check:</strong>
+          <span>{dncEnabled ? "Enabled" : "Disabled"}</span>
+        </div>
+      </div>
+
       <div style={styles.resultBox}>
         <h3 style={styles.resultTitle}>
           <span>💾</span>
@@ -107,7 +122,7 @@ export default function Step3Validate({ campaign, uploadResult, onBack, onContin
 
       <div style={{ marginTop: '20px' }}>
         <p style={{ fontSize: '14px', marginBottom: '16px', color: '#374151' }}>
-          Ready to validate {uploadResult.uploaded} records through MuleSoft?
+          Continue to fetch telephone numbers for {uploadResult.uploaded} records
         </p>
         <button
           onClick={handleValidateData}

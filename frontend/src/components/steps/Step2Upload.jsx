@@ -80,7 +80,11 @@ export default function Step2Upload({ campaign, dncEnabled, user, onBack, onCont
 
       <div style={styles.infoBox}>
         <div style={styles.infoRow}>
-          <strong>Campaign:</strong>
+          <strong>Campaign ID:</strong>
+          <span>{campaign.id}</span>
+        </div>
+        <div style={styles.infoRow}>
+          <strong>Campaign Name:</strong>
           <span>{campaign.name}</span>
         </div>
         <div style={styles.infoRow}>
