@@ -1,0 +1,138 @@
+.login-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(56deg, rgba(77, 33, 109, 1) 0%, rgba(143, 107, 181, 1) 100%);
+}
+
+.login-container {
+  padding: 50px;
+  border-radius: 10px;
+  width: 450px;
+  text-align: center;
+  background-color: transparent;
+}
+
+.login-ocado-image {
+  margin-bottom: 35px;
+  height: 65px;
+  width: 280px;
+}
+
+.input-group {
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.login-input-lable {
+  color: white;
+  margin-bottom: 10px;
+}
+.password-container {
+  position: relative;
+}
+.password-toggle-icon {
+  position: absolute;
+  right: 10px;
+  top: 20%;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+.input-field {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 3px solid white;
+  background-color: transparent;
+  margin-bottom: 15px;
+  color: white; /* Ensure text color is white */
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.input-field:focus {
+  border-color: white; /* Keep the border color white on focus */
+  outline: none; /* Remove the default outline */
+}
+
+.error-message {
+  color: red;
+  margin-bottom: 20px;
+}
+
+.button-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  margin-top: 25px;
+}
+
+.login-button {
+  padding: 10px;
+  border-radius: 10px;
+  background-color: transparent;
+  color: white;
+  border: none;
+  border:3px solid white;
+  width: 90px;
+  font-size: 15px;
+  font-weight: 400;
+}
+.login-button:hover {
+  background-color: white; /* Color on hover */
+  color: #4d216d;
+}
+.remember-me {
+  display: flex;
+  align-items: center;
+}
+
+.custom-checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: white;
+}
+
+.custom-checkbox input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.custom-checkbox .checkmark {
+  position: relative;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background-color: transparent;
+  border-radius: 4px;
+  margin-right: 8px;
+  border: 2px solid #ffffff !important;
+}
+
+.custom-checkbox input[type="checkbox"]:checked + .checkmark {
+  background-color: #2196F3;
+}
+
+.custom-checkbox .checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.custom-checkbox input[type="checkbox"]:checked + .checkmark:after {
+  display: block;
+}
+
+.custom-checkbox .checkmark:after {
+  left: 7px;
+  top: 3px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+}

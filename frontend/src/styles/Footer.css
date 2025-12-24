@@ -1,0 +1,58 @@
+.footer {
+    background-color: transparent;
+    position: fixed;
+    text-align: center;
+    width: 100%;
+    z-index:99999;
+    bottom: 0px;
+    left:0px;
+    right: 0px;
+    margin-bottom: 0px;
+}
+p{
+    color: #a7a7a8;
+    font-size: 11px;
+}
+.footerSignIn{
+    display: flex;
+    justify-content: center;
+    background-color: transparent;
+    text-align: center;
+    padding: 10px 0;
+    position: fixed;
+    width: 100%;
+    bottom: 0;
+}
+.footerSignIn p{
+    color: #cfcfd3;
+    font-size: 11px;
+}
+@media (max-width: 768px) {
+    .footer {
+        display: flex;
+        justify-content: center;
+        background-color: transparent;
+        text-align: center;
+        padding: 10px 0;
+        position: relative;
+        width: 100%;
+        bottom: 0;
+    }
+    p{
+        color: black;
+    }
+    .footerSignIn{
+        display: flex;
+        justify-content: center;
+        background-color: transparent;
+        text-align: center;
+        padding: 10px 0;
+        position: relative;
+        width: 100%;
+        bottom: 0;
+    }
+    .footerSignIn p{
+        color: black;
+        font-size: 11px;
+    }
+}

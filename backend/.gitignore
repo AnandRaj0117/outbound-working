@@ -1,0 +1,17 @@
+
+# Node modules
+node_modules/
+
+# Environment files with secrets
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+
+# Service account credentials
+orl.json
+orl-dev.json
+orl-ppd.json
+orl-tst.json
+orl-prd.json

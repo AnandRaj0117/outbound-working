@@ -1,0 +1,16 @@
+runtime: nodejs20
+service: campaignportal
+ 
+handlers:
+  # Serve static assets (JS, CSS, images)
+  - url: /static
+    static_dir: build/static
+ 
+  - url: /(.*\.(js|css|png|jpg|jpeg|gif|ico|json|svg|map))
+    static_files: build/\1
+    upload: build/.*\.(js|css|png|jpg|jpeg|gif|ico|json|svg|map)
+ 
+  # Catch all - send everything else to index.html
+  - url: /.*
+    static_files: build/index.html
+    upload: build/index.html

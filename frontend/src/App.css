@@ -1,0 +1,469 @@
+@import url('https://fonts.googleapis.com/css?family=Muli');
+body, html {
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  font-family: muli, Helvetica, sans-serif;
+  font-size: 15px;
+  /* background: rgb(77, 33, 109);
+    background: linear-gradient(56deg, rgba(77, 33, 109, 1) 0%, rgba(143, 107, 181, 1) 100%); */
+    
+  /* Hide scrollbar for the entire page */
+  height: 100%;
+  color: #1b1f23;
+font-weight: 400; 
+  
+}
+/*
+*/
+/* body {
+    font-family: Arial, sans-serif;
+        background: rgb(77, 33, 109);
+    background: linear-gradient(56deg, rgba(77, 33, 109, 1) 0%, rgba(143, 107, 181, 1) 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+} */
+/*  
+.login-container {
+    padding: 40px;
+    width: 320px;
+    text-align: center;
+}
+ 
+h2 {
+    margin-bottom: 20px;
+    color: #333333;
+}
+ 
+.input-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+ 
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: #fff;
+}
+ 
+input {
+	margin: 10px 20px 26px 0;
+    border-radius: 12px;
+    border: 3px solid rgba(255, 255, 255, 1);
+    background: rgba(250, 250, 250, 0);
+    color: rgba(255, 255, 255, 1);
+    width: 100%;
+    padding: 15px 10px;
+}
+ 
+button {
+    width: 30%;
+    padding: 10px;
+    background-color: transparent;
+	border: 3px solid rgba(255, 255, 255, 1);
+    color: #ffffff;
+    border-radius: 8px;
+    cursor: pointer;
+}
+ 
+button:hover {
+    background-color: #005a87;
+} */
+
+.App {
+  display: flex;
+  flex-direction: column;
+  /* align-items: center;
+  justify-content: center;  */
+  /* Center content vertically */
+  height: 100vh;
+  padding: 30px 55px;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+ .notification-upload-modal-download-button {
+  padding: 8px 16px;
+  background-color: #4d216d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.notification-upload-modal-download-button:hover {
+  background-color: #0056b3;
+}
+
+.table-container {
+  width: 100%; /* Ensure the container uses the full width */
+  max-height: 200px; /* Set a max height for the table container */
+  overflow-y: auto; /* Enable vertical scrolling */
+  border-radius: 0px 0px 8px 8px;
+  border: 1px solid #ddd;
+  margin-bottom: 20px; /* Add margin between accordions */
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+.table-container2 {
+  width: 100%; /* Ensure the container uses the full width */
+  max-height: 200px; /* Set a max height for the table container */
+  overflow-y: auto; /* Enable vertical scrolling */
+  border-radius: 0px 0px 8px 8px;
+  border: 1px solid #ddd;
+  margin-bottom: 20px; /* Add margin between accordions */
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  margin-top: 8px;
+}
+table {
+  width: 100%; /* Ensure the table uses the full width */
+  border-collapse: separate;
+  border-spacing: 0;
+}
+ 
+th, td {
+  padding: 4px; /* Reduce padding to decrease row height */
+  text-align: center;
+  border: 1px solid grey !important; /* SUggestion to be remove from magesh*/
+  line-height: 1; /* Adjust line height to reduce row height */
+}
+ 
+th {
+  position: sticky;
+  top: 0;
+  background-color: #4d216d; /* Background color to ensure visibility */
+  z-index: 1; /* Ensure the header stays above other elements */
+  height: 28px;
+  color: white;
+}
+ 
+/* th{
+border: 1px solid red !important;
+} */
+/* th:nth-child(1), td:nth-child(1) {
+  width: 20%;
+}
+ 
+th:nth-child(2), td:nth-child(2) {
+  width: 30%;
+}
+ 
+th:nth-child(3), td:nth-child(3) {
+  width: 50%;
+} */
+.en-active-table th:nth-child(1), .en-active-table td:nth-child(1) {
+  width: 10%;
+}
+ 
+.en-active-table th:nth-child(2), .en-active-table td:nth-child(2) {
+  width: 10%;
+}
+ 
+.en-active-table th:nth-child(3), .en-active-table td:nth-child(3) {
+  width: 15%;
+}
+.en-active-table th:nth-child(4), .en-active-table td:nth-child(4) {
+  width: 40%;
+}
+.en-active-table th:nth-child(5), .en-active-table td:nth-child(5) {
+  width: 20%;
+}
+.en-active-table th:nth-child(6), .en-active-table td:nth-child(6) {
+  width: 5%;
+}
+
+.en-all-table th:nth-child(1), .en-all-table td:nth-child(1) {
+  width: 10%;
+}
+ 
+.en-all-table th:nth-child(2), .en-all-table td:nth-child(2) {
+  width: 10%;
+}
+ 
+.en-all-table th:nth-child(3), .en-all-table td:nth-child(3) {
+  width: 15%;
+}
+.en-all-table th:nth-child(4), .en-all-table td:nth-child(4) {
+  width: 30%;
+}
+.en-all-table th:nth-child(5), .en-all-table td:nth-child(5) {
+  width: 20%;
+}
+.en-all-table th:nth-child(6), .en-all-table td:nth-child(6) {
+  width: 5%;
+}
+.en-all-table th:nth-child(7), .en-all-table td:nth-child(7) {
+  width: 10%;
+}
+/*/////////////////////////////////////////////// */
+ 
+ 
+.em-active-table th:nth-child(1), .em-active-table td:nth-child(1) {
+  width: 10%;
+}
+ 
+.em-active-table th:nth-child(2), .em-active-table td:nth-child(2) {
+  width: 10%;
+}
+ 
+.em-active-table th:nth-child(3), .em-active-table td:nth-child(3) {
+  width: 15%;
+}
+.em-active-table th:nth-child(4), .em-active-table td:nth-child(4) {
+  width: 55%;
+}
+.em-active-table th:nth-child(5), .em-active-table td:nth-child(5) {
+  width: 10%;
+}
+
+.em-all-table th:nth-child(1), .em-all-table td:nth-child(1) {
+  width: 10%;
+}
+ 
+.em-all-table th:nth-child(2), .em-all-table td:nth-child(2) {
+  width: 10%;
+}
+ 
+.em-all-table th:nth-child(3), .em-all-table td:nth-child(3) {
+  width: 60%;
+}
+.em-all-table th:nth-child(4), .em-all-table td:nth-child(4) {
+  width: 10%;
+}
+.em-all-table th:nth-child(5), .em-all-table td:nth-child(5) {
+  width: 10%;
+}
+.em-active-table th, .em-active-table td,
+.em-all-table th, .em-all-table td {
+    word-break: break-word; /* Ensures long words break */
+    overflow-wrap: break-word; /* Ensures long words wrap */
+    white-space: normal;
+}
+.en-active-table th, .en-active-table td,
+.en-all-table th, .en-all-table td {
+    word-break: break-word; /* Ensures long words break */
+    overflow-wrap: break-word; /* Ensures long words wrap */
+    white-space: normal;
+}
+table tbody tr:nth-child(odd) {
+  background-color: #ffffff; /* Light grey for odd rows */
+}
+ 
+table tbody tr:nth-child(even) {
+  /* background-color: #f0eff1; color code provided by magesh */
+  /* background-color: #eef2f5; */
+  background-color: #6c757d59;
+  /* White for even rows */
+}
+@media (max-width: 600px) {
+  .accordion-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+ 
+  .radio-buttons {
+    margin-bottom: 10px;
+  }
+ 
+  .accordion-title {
+    text-align: center;
+    width: 100%;
+   
+  }
+}
+ 
+.accordion {
+  width: 100%;
+  margin-bottom: 10px;
+}
+ 
+.accordion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 5px;
+  background-color: #7d5f96;
+  border: none;
+  cursor: pointer;
+  border-radius: 8px 8px 0px 0px;
+  color: white;
+}
+ 
+.accordion-open-header {
+  /* background-color: #eef2f5; */ /* Suggestion from magesh*/
+  /* background-color: #ceb8d4; */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px;
+  background-color: #ccc;
+  border: none;
+  cursor: pointer;
+  border-radius: 8px 8px 0px 0px;
+  color: #4d216d;
+}
+ 
+.accordion-title {
+  text-align: center;
+  flex-grow: 1;
+  color: #4d216d;
+  font-weight: bold;
+  font-size: 19px;
+}
+ .accordion-open-title{
+  text-align: center;
+  flex-grow: 1;
+  color: white;
+  /* font-weight: bold; */
+  font-size: 1.2em;
+  font-weight: 500;
+  font-style: normal;
+  
+ }
+.radio-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: -25px;
+  margin-left:10px ;
+  color: white;
+}
+ .notification-upload-modal-sample-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px; /* optional spacing */
+}
+
+.notification-upload-modal-sample-link {
+  text-decoration: none;
+  color: #007bff; /* or any color you prefer */
+  font-weight: 500;
+  margin-left: 50px;
+  margin-bottom: 15px;
+  cursor: pointer;
+}
+.empty-space {
+  flex-grow: 1;
+}
+.react-confirm-alert-body {
+  padding: 0px;
+  border: 1px solid #ddd;
+}
+.react-confirm-alert-body>h4 {
+  text-align: center;
+  background-color: #4d216d;
+  color: white;
+  padding: 10px;
+  border-radius: 10px 10px 0px 0px;
+}
+.alert-message-body{
+  display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    margin: 10px;
+    color: #514d4d;
+    padding: 10px;
+    font-size: 15px;
+}
+.alert-message-paragraph{
+  text-align: center;
+  color: #514d4d;
+  margin:20px 10px 20px 10px;
+  font-size: 15px;
+  padding: 0px 10px;
+}
+.modal {
+  position: fixed; /* Change to fixed to ensure it stays on top */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  z-index: 1000; /* Ensure the modal is above all other elements */
+}
+ 
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.5); /* Slightly white background */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(5px); /* Blur the background */
+  z-index: 999; /* Ensure the overlay is below the modal but above other elements */
+}
+.customUI-button-body{
+  display: flex;
+  justify-content: space-between;
+ 
+}
+.customUI-No-Button{
+flex: 1;
+padding: 15px;
+background-color: #f0f0f0;
+color: #4d216d;
+border: none;
+border-radius: 0 0 0 10px;
+}
+.customUI-Yes-Button{
+  flex: 1;
+  padding: 15px;
+  background-color: #4d216d;
+  border: none;
+  border-radius: 0 0 10px 0;
+  color: white;
+  }
+.em-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 50px 0px 10px 0px;
+  width: 100%;
+  box-sizing: border-box;
+}
+ 
+.em-heading {
+  font-weight: 600;
+  font-size: 1.3em;
+  line-height: 1.2;
+  margin-bottom: 0px;
+  color: #4d216d;
+  font-style: normal;
+}
+ 
+.em-button {
+  background-color: white;
+  border-radius: 8px;
+  color: #4d216d;
+  border: 2px solid #4d216d;
+  padding: 5px 20px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.toggleOnAndOff {
+   background-color: #4d216d !important;
+   z-Index: 1000000
+}
+.radioButtonSpace{
+  margin-right: 5px;
+}
+.em-button:hover {
+  background-color: #4d216d ;
+  color: white;
+}
+.customUI-Yes-Button:hover{
+  background-color: #7d5f96;
+}
+.customUI-No-Button:hover{
+  background-color: #7d5f96;
+  color:white
+}

@@ -1,0 +1,186 @@
+/* LandingPage.css */
+.landing-page {
+    min-height: 100vh;
+    background-color: #f5f5f5;
+    padding: 20px;
+  }
+
+  .welcome-container {
+    text-align: center;
+    padding: 40px 20px 20px;
+    background-color: white;
+    margin-bottom: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .welcome-container h1 {
+    font-size: 32px;
+    color: #4d216d;
+    margin-bottom: 10px;
+  }
+
+  .welcome-container p {
+    font-size: 16px;
+    color: #666;
+  }
+
+  /* Table Container */
+  .table-container {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 20px;
+    overflow-x: auto;
+  }
+
+  /* Loading & Error States */
+  .loading, .error-message, .no-data {
+    text-align: center;
+    padding: 40px;
+    font-size: 18px;
+    color: #666;
+  }
+
+  .error-message {
+    color: #d32f2f;
+  }
+
+  .error-message button {
+    margin-left: 10px;
+    padding: 8px 16px;
+    background-color: #4d216d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .error-message button:hover {
+    background-color: #3a1952;
+  }
+
+  /* Table Styles */
+  .campaigns-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+
+  .campaigns-table thead {
+    background-color: #4d216d;
+    color: white;
+  }
+
+  .campaigns-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .campaigns-table tbody tr {
+    border-bottom: 1px solid #e0e0e0;
+    transition: background-color 0.2s;
+  }
+
+  .campaigns-table tbody tr:hover {
+    background-color: #f5f5f5;
+  }
+
+  .campaigns-table td {
+    padding: 12px;
+    font-size: 14px;
+    color: #333;
+  }
+
+  /* DNC Badge */
+  .dnc-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .dnc-badge.yes {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .dnc-badge.no {
+    background-color: #ffebee;
+    color: #c62828;
+  }
+
+  /* CCAI Count */
+  .ccai-count {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .failed-count {
+    font-size: 12px;
+    color: #d32f2f;
+    margin-top: 2px;
+  }
+
+  /* Download Button */
+  .download-btn {
+    padding: 8px 16px;
+    background-color: #4d216d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+  }
+
+  .download-btn:hover {
+    background-color: #3a1952;
+  }
+
+  .download-btn:active {
+    transform: scale(0.98);
+  }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .campaigns-table {
+      font-size: 12px;
+    }
+
+    .campaigns-table th,
+    .campaigns-table td {
+      padding: 8px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .landing-page {
+      padding: 10px;
+    }
+
+    .welcome-container h1 {
+      font-size: 24px;
+    }
+
+    .welcome-container p {
+      font-size: 14px;
+    }
+
+    .table-container {
+      padding: 10px;
+    }
+
+    .campaigns-table {
+      font-size: 11px;
+    }
+
+    .campaigns-table th,
+    .campaigns-table td {
+      padding: 6px;
+    }
+  }

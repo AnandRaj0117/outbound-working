@@ -1,0 +1,12 @@
+runtime: nodejs20
+service: apifirestorelt
+env_variables :
+  PORT : 8080
+handlers:
+- url: /static
+  static_dir: dist
+ 
+- url: /.*
+  script: auto
+  secure: always
+ 
