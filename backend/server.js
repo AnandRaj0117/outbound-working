@@ -343,9 +343,43 @@ app.post(
 
       console.log(`✅ Updated campaign_selections/${campaignId} with counts`);
 
-      // ----- 6. Save validated (deduplicated) data in NEW collection -----
+      // ----- 6. Check for existing data and delete if found -----
       const validatedDataCollection = firestore.collection('validated_campaign_data');
 
+      // Check if data already exists for this campaign
+      const existingDataQuery = await validatedDataCollection
+        .where('campaign_id_ref', '==', String(campaignId))
+        .get();
+
+      let existingRecordsCount = existingDataQuery.size;
+      let dataAlreadyExisted = existingRecordsCount > 0;
+
+      if (dataAlreadyExisted) {
+        console.log(`⚠️ Found ${existingRecordsCount} existing records for campaign ${campaignId}. Deleting...`);
+
+        // Delete existing records in batches
+        let deleteBatch = firestore.batch();
+        let deleteCount = 0;
+
+        for (const doc of existingDataQuery.docs) {
+          deleteBatch.delete(doc.ref);
+          deleteCount++;
+
+          if (deleteCount >= 400) {
+            await deleteBatch.commit();
+            deleteBatch = firestore.batch();
+            deleteCount = 0;
+          }
+        }
+
+        if (deleteCount > 0) {
+          await deleteBatch.commit();
+        }
+
+        console.log(`✅ Deleted ${existingRecordsCount} existing records`);
+      }
+
+      // ----- 7. Save validated (deduplicated) data in NEW collection -----
       // Use batch writes for efficiency
       let batch = firestore.batch();
       let batchCount = 0;
@@ -376,7 +410,7 @@ app.post(
 
       console.log(`✅ Saved ${uniqueRows.length} validated records to validated_campaign_data`);
 
-      // ----- 7. Respond to frontend -----
+      // ----- 8. Respond to frontend -----
       return res.status(200).json({
         success: true,
         uploaded: totalValidatedData,
@@ -390,7 +424,9 @@ app.post(
         duplicateCount: failedRecords.filter(f => f.reason.includes('Duplicate')).length,
         dncApplied: !!isDNCSelected,
         campaignId: campaignId,
-        validatedDataSaved: savedDocIds.length
+        validatedDataSaved: savedDocIds.length,
+        dataReplaced: dataAlreadyExisted,
+        replacedRecordsCount: existingRecordsCount
       });
     } catch (error) {
       console.error('Error in /api/campaigns/upload-excel:', error);

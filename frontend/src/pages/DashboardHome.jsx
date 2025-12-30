@@ -172,7 +172,7 @@ export default function DashboardHome({ user }) {
       margin: 0
     },
     createButton: {
-      background: '#10b981',
+      background: '#4d216d',
       color: 'white',
       border: 'none',
       padding: '12px 28px',
@@ -352,12 +352,12 @@ export default function DashboardHome({ user }) {
 
       <div style={styles.container}>
         <div style={styles.topSection}>
-          <h2 style={styles.pageTitle}>Campaign History</h2>
+          <h2 style={styles.pageTitle}>Campaign Upload History</h2>
           <button
             onClick={() => navigate('/create-campaign')}
             style={styles.createButton}
-            onMouseEnter={(e) => e.target.style.background = '#059669'}
-            onMouseLeave={(e) => e.target.style.background = '#10b981'}
+            onMouseEnter={(e) => e.target.style.background = '#3d1a57'}
+            onMouseLeave={(e) => e.target.style.background = '#4d216d'}
           >
             <span style={{ fontSize: '18px' }}>+</span>
             Create Campaign

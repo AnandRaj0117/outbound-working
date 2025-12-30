@@ -79,7 +79,14 @@ export default function Step2Upload({ campaign, dncEnabled, user, onBack, onCont
           ...data,
           uploadedData: []
         });
-        setMessage(`Successfully uploaded ${data.total} records! ${data.uploaded} unique records after deduplication.`);
+
+        let successMessage = `Successfully uploaded ${data.total} records! ${data.uploaded} unique records after deduplication.`;
+
+        if (data.dataReplaced) {
+          successMessage += ` ⚠️ Note: ${data.replacedRecordsCount} existing records for this campaign were replaced with new data.`;
+        }
+
+        setMessage(successMessage);
         onContinue();
       } else {
         setError(data.error || "Upload failed");
