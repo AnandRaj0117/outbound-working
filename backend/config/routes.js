@@ -50,7 +50,14 @@ module.exports = function (app, config, passport) {
   // Return logged-in user info (works for both SAML and local auth)
   app.get('/profile', (req, res) => {
     if (req.isAuthenticated()) {
-      res.json({ user: req.user });
+      // Add a formatted name field to the user object
+      const user = {
+        ...req.user,
+        name: req.user.authMode === 'local'
+          ? 'Local User'
+          : `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.mail
+      };
+      res.json({ user });
     } else {
       res.status(401).json({ error: 'Unauthorized' });
     }

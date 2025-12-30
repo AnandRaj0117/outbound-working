@@ -75,7 +75,8 @@ export default function DashboardHome({ user }) {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit'
+      second: '2-digit',
+      timeZone: 'Europe/London'
     }).replace(',', '');
   };
 
@@ -205,12 +206,12 @@ export default function DashboardHome({ user }) {
       borderCollapse: 'collapse'
     },
     th: {
-      background: '#f9fafb',
+      background: '#4d216d',
       padding: '16px',
       textAlign: 'left',
       fontSize: '13px',
       fontWeight: '700',
-      color: '#374151',
+      color: 'white',
       borderBottom: '2px solid #e5e7eb',
       whiteSpace: 'nowrap'
     },

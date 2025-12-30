@@ -5,6 +5,7 @@ const express = require("express");
 const session = require("express-session");
 const passport = require("passport");
 const { Firestore } = require("@google-cloud/firestore");
+const FirestoreStore = require("firestore-store")(session);
 require("dotenv").config();
 const multer = require('multer');
 const fs = require('fs');
@@ -31,6 +32,18 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 app.use(cookieParser());
 
+// Initialize Firestore for session store
+const projectId = process.env.PROJECT_ID;
+const keyFilename = process.env.KEYFILENAME;
+const database = process.env.DATABASE;
+const dataFilePath = path.join(__dirname, keyFilename);
+
+const sessionFirestore = new Firestore({
+  projectId: projectId,
+  keyFilename: dataFilePath,
+  databaseId: database
+});
+
 // Session configuration - different settings for local vs production
 const isLocalDev = process.env.USE_LOCAL_AUTH === 'true';
 app.use(session({
@@ -38,11 +51,15 @@ app.use(session({
   secret: '132768546309',
   resave: false,
   saveUninitialized: false,
+  store: new FirestoreStore({
+    database: sessionFirestore,
+    kind: 'express-sessions'
+  }),
   cookie: {
     httpOnly: true,
     secure: isLocalDev ? false : true,        // false for local HTTP, true for production HTTPS
     sameSite: isLocalDev ? 'lax' : 'none',    // 'lax' for local, 'none' for production
-    maxAge: 24 * 60 * 60 * 1000               // 24 hours
+    maxAge: 30 * 24 * 60 * 60 * 1000          // 30 days
   }
 }));
 
@@ -58,11 +75,7 @@ app.use(errorhandler());
 require('./config/passport')(passport, config);
 require('./config/routes')(app, config, passport);
 
-const projectId = process.env.PROJECT_ID;
-const keyFilename = process.env.KEYFILENAME;
-const database = process.env.DATABASE;
 const bucketName = process.env.BUCKETNAME; // Excel bucket
-const dataFilePath = path.join(__dirname, keyFilename);
 
 if (!projectId || !keyFilename || !bucketName) {
   console.warn(
@@ -76,11 +89,7 @@ const storage = new Storage({
 });
 
 /*Configuration to connect Firestore Database*/
-const firestore = new Firestore({
-  projectId: projectId,
-  keyFilename: dataFilePath,
-  databaseId: database
-});
+const firestore = sessionFirestore; // Reuse the same Firestore instance
 
 const upload = multer({ dest: os.tmpdir() });
 
@@ -131,6 +140,54 @@ app.post("/user_auth", async (req, res) => {
   user_auth.user_authentication_func(req, res, firestore);
 });
 
+
+// ========== 📥 DOWNLOAD SAMPLE EXCEL FILE ==========
+app.get('/api/campaigns/download-sample', (req, res) => {
+  try {
+    console.log('📥 Sending sample Excel file...');
+
+    const sampleFilePath = path.join(__dirname, 'samples', 'Sample_Customer_Upload.xlsx');
+
+    console.log('   __dirname:', __dirname);
+    console.log('   Full path:', sampleFilePath);
+
+    // Check if file exists
+    if (!fs.existsSync(sampleFilePath)) {
+      console.error('❌ Sample file not found at:', sampleFilePath);
+      return res.status(404).json({
+        error: 'Sample file not found',
+        path: sampleFilePath
+      });
+    }
+
+    console.log('✅ Sample file found at:', sampleFilePath);
+
+    // Get file stats
+    const stats = fs.statSync(sampleFilePath);
+    console.log('   File size:', stats.size, 'bytes');
+
+    // Read file into buffer
+    const fileBuffer = fs.readFileSync(sampleFilePath);
+    console.log('   Buffer size:', fileBuffer.length, 'bytes');
+
+    // Set headers for Excel file download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Sample_Customer_Upload.xlsx"');
+    res.setHeader('Content-Length', fileBuffer.length);
+
+    // Send file
+    res.send(fileBuffer);
+    console.log('✅ Sample file sent successfully');
+
+  } catch (error) {
+    console.error('❌ Error downloading sample Excel file:', error);
+    console.error('   Stack:', error.stack);
+    res.status(500).json({
+      error: 'Failed to download sample file',
+      details: error.message
+    });
+  }
+});
 
 // ========== 1️⃣ UPLOAD EXCEL → FIRESTORE + BUCKET ==========
 // Route: POST /api/campaigns/upload-excel
@@ -419,23 +476,45 @@ async function getCustomerPhone(customerId, token) {
     console.error(`❌ Error fetching phone for customer ${customerId}:`, error.message);
 
     // Generate user-friendly error message
-    let userFriendlyError = 'API validation failed';
+    let userFriendlyError;
     const statusCode = error.response?.status;
+    const errorData = error.response?.data;
 
+    // Check for specific HTTP status codes
     if (statusCode === 404) {
       userFriendlyError = 'Customer ID does not exist';
     } else if (statusCode === 401 || statusCode === 403) {
-      userFriendlyError = 'Authentication error';
+      userFriendlyError = 'Authentication error - access denied';
     } else if (statusCode === 400) {
       userFriendlyError = 'Invalid customer ID format';
-    } else if (statusCode === 500 || statusCode === 502 || statusCode === 503) {
-      userFriendlyError = 'Customer API server error';
-    } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      userFriendlyError = 'API request timeout';
-    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-      userFriendlyError = 'Cannot connect to customer API';
+    } else if (statusCode === 500) {
+      userFriendlyError = 'Customer API internal server error';
+    } else if (statusCode === 502) {
+      userFriendlyError = 'Customer API gateway error';
+    } else if (statusCode === 503) {
+      userFriendlyError = 'Customer API temporarily unavailable';
+    } else if (statusCode === 429) {
+      userFriendlyError = 'Too many requests - rate limit exceeded';
+    }
+    // Check for network/connection errors
+    else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      userFriendlyError = 'Request timeout - customer API took too long to respond';
+    } else if (error.code === 'ENOTFOUND') {
+      userFriendlyError = 'Customer API server not found';
+    } else if (error.code === 'ECONNREFUSED') {
+      userFriendlyError = 'Customer API connection refused';
+    } else if (error.code === 'ETIMEDOUT') {
+      userFriendlyError = 'Network timeout while connecting to API';
     } else if (!error.response) {
-      userFriendlyError = 'Network error - no response from API';
+      userFriendlyError = 'No response from customer API - network error';
+    }
+    // If we have a status code but no specific message
+    else if (statusCode) {
+      userFriendlyError = `Customer API error (HTTP ${statusCode})`;
+    }
+    // Last resort fallback with more context
+    else {
+      userFriendlyError = `Unable to validate customer - ${error.message || 'Unknown error'}`;
     }
 
     return {
@@ -561,7 +640,7 @@ app.post('/api/campaigns/validate-customers', async (req, res) => {
           failureReason = 'Phone number not available for customer';
         } else {
           // API failed - use the user-friendly error we set
-          failureReason = phoneResult.error || 'API validation failed';
+          failureReason = phoneResult.error || 'Customer validation failed - no error details available';
         }
 
         failedRecords.push({
@@ -1085,13 +1164,55 @@ app.post('/api/ccai/campaigns/:campaignId/contacts', async (req, res) => {
 // ------ NEW: Upload validated data to CCAI (Step 4) - Using CCAI CSV Format ------
 app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
   try {
-    const { campaignId } = req.body;
+    const { campaignId, clearExisting = true } = req.body;
 
     if (!campaignId) {
       return res.status(400).json({
         success: false,
         error: 'Campaign ID is required'
       });
+    }
+
+    console.log(`📤 Starting upload to CCAI for campaign: ${campaignId}`);
+    console.log(`🗑️  Clear existing contacts: ${clearExisting}`);
+
+    // STEP 1: Clear existing contacts if requested
+    if (clearExisting) {
+      try {
+        console.log('🗑️  Fetching existing contacts to clear...');
+        const contactsUrl = `${CCAI_BASE_URL}/apps/api/v1/outbound_dialer/campaigns/${campaignId}/contacts`;
+        const contactsResponse = await axios.get(contactsUrl, authConfig);
+        const existingContacts = contactsResponse.data || [];
+
+        if (existingContacts.length > 0) {
+          console.log(`🗑️  Found ${existingContacts.length} existing contacts. Deleting...`);
+
+          const deleteUrl = `${CCAI_BASE_URL}/apps/api/v1/outbound_dialer/campaigns/${campaignId}/contact`;
+
+          for (const contact of existingContacts) {
+            try {
+              await axios.delete(deleteUrl, {
+                ...authConfig,
+                data: { contact_id: Number(contact.id) },
+                headers: {
+                  ...authConfig.headers,
+                  'Content-Type': 'application/json',
+                },
+              });
+              console.log(`   ✓ Deleted contact: ${contact.name} (ID: ${contact.id})`);
+            } catch (delError) {
+              console.warn(`   ⚠️  Failed to delete contact ${contact.id}: ${delError.message}`);
+            }
+          }
+
+          console.log(`✅ Cleared ${existingContacts.length} existing contacts`);
+        } else {
+          console.log('ℹ️  No existing contacts to clear');
+        }
+      } catch (clearError) {
+        console.warn(`⚠️  Error clearing existing contacts: ${clearError.message}`);
+        // Continue with upload even if clearing fails
+      }
     }
 
     console.log(`📤 Starting upload to CCAI for campaign: ${campaignId}`);
@@ -1192,48 +1313,59 @@ app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
       });
     }
 
+    console.log(`📊 Total contacts to upload: ${contacts.length}`);
+    console.log(`📋 Sample contacts:\n${JSON.stringify(contacts.slice(0, 3), null, 2)}`);
+
+    // STEP 2: Upload contacts to CCAI using bulk import endpoint
+    const importUrl = `${CCAI_BASE_URL}/apps/api/v1/outbound_dialer/campaigns/${campaignId}/contacts/import`;
+
+    console.log(`📤 Uploading contacts via bulk import to CCAI: ${importUrl}`);
+    console.log(`   Campaign ID: ${campaignId}`);
+    console.log(`   Total contacts: ${contacts.length}`);
+
+    // Create JSON file with contacts
     const jsonContent = JSON.stringify(contacts, null, 2);
     const jsonFilePath = path.join(os.tmpdir(), `ccai_contacts_${campaignId}_${Date.now()}.json`);
 
-    // Write JSON to temp file with UTF-8 encoding
     fs.writeFileSync(jsonFilePath, jsonContent, { encoding: 'utf8' });
-    console.log(`📝 Generated JSON file: ${jsonFilePath}`);
-    console.log(`📊 Total contacts in JSON: ${contacts.length}`);
-    console.log(`📋 Sample JSON content (CCAI format):\n${JSON.stringify(contacts.slice(0, 3), null, 2)}`);
+    console.log(`📝 Created JSON file: ${jsonFilePath}`);
+    console.log(`📝 File size: ${fs.statSync(jsonFilePath).size} bytes`);
 
-    // Upload file to CCAI using import endpoint
-    const importUrl = `${CCAI_BASE_URL}/apps/api/v1/outbound_dialer/campaigns/${campaignId}/contacts/import`;
-
-    console.log(`📤 Uploading to CCAI: ${importUrl}`);
-
+    // Upload using multipart/form-data
     const formData = new FormData();
     formData.append('file', fs.createReadStream(jsonFilePath), {
       filename: 'contacts.json',
       contentType: 'application/json'
     });
 
+    let uploadedCount = 0;
+    let uploadFailedCount = 0;
+    const uploadErrors = [];
+    let jobId = null;
+
     try {
+      console.log(`📤 Sending bulk import request...`);
+
       const response = await axios.post(importUrl, formData, {
         ...authConfig,
         headers: {
           ...authConfig.headers,
           ...formData.getHeaders(),
         },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
       });
 
-      console.log('✅ CCAI upload successful!');
-      console.log('   Status:', response.status);
-      console.log('   Response Data:', JSON.stringify(response.data, null, 2));
-      console.log('   Response Headers:', JSON.stringify(response.headers, null, 2));
+      console.log(`✅ CCAI bulk import successful!`);
+      console.log(`   Status: ${response.status}`);
+      console.log(`   Response:`, JSON.stringify(response.data, null, 2));
 
-      // Extract job_id from response data or headers
-      let jobId = response.data?.job_id ||
-                  response.data?.id ||
-                  response.headers?.['x-job-id'] ||
-                  null;
+      // Extract job_id
+      jobId = response.data?.job_id ||
+              response.data?.id ||
+              response.headers?.['x-job-id'] ||
+              null;
 
-      // If not found, try to extract from location header
-      // Format: /v1/outbound_dialer/campaigns/{campaign_id}/contacts/jobs/{job_id}
       if (!jobId && response.headers?.location) {
         const locationMatch = response.headers.location.match(/\/jobs\/(\d+)$/);
         if (locationMatch) {
@@ -1241,18 +1373,26 @@ app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
         }
       }
 
-      console.log('   📋 Job ID:', jobId);
+      console.log(`   📋 Job ID: ${jobId}`);
 
-      // Mark all records as uploaded in Firestore
+      // Mark all contacts as uploaded
+      uploadedCount = contacts.length;
+      uploadFailedCount = 0;
+
+      // Mark successfully uploaded records in Firestore
       let batch = firestore.batch();
       let batchCount = 0;
 
-      for (const doc of validRecords) {
+      // Only mark the successfully uploaded ones
+      const successfullyUploaded = contacts.length - uploadErrors.length;
+
+      for (let i = 0; i < validRecords.length; i++) {
+        const doc = validRecords[i];
         batch.update(doc.ref, {
           uploaded_to_ccai: true,
           uploaded_to_ccai_at: new Date(),
           ccai_job_id: jobId,
-          ccai_response: response.data
+          upload_status: 'success'
         });
         batchCount++;
 
@@ -1273,27 +1413,29 @@ app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
         .doc(String(campaignId));
 
       await campaignSelectionRef.set({
-        uploaded_to_ccai: contacts.length,
-        upload_to_ccai_failed: duplicateCount + skippedCount,
+        uploaded_to_ccai: uploadedCount,
+        upload_to_ccai_failed: uploadFailedCount + duplicateCount + skippedCount,
         upload_to_ccai_completed_at: new Date(),
         ccai_upload_date: new Date(),
         ccai_job_id: jobId
       }, { merge: true });
 
       // Clean up temp file
-      fs.unlinkSync(jsonFilePath);
-
-      const actualUploaded = contacts.length;
+      if (fs.existsSync(jsonFilePath)) {
+        fs.unlinkSync(jsonFilePath);
+        console.log(`🗑️  Cleaned up temp file: ${jsonFilePath}`);
+      }
 
       res.status(200).json({
         success: true,
-        message: 'Upload to CCAI completed via JSON file',
+        message: `Upload to CCAI completed via bulk import. ${uploadedCount} contacts uploaded successfully.`,
         total: validRecords.length,
-        uploaded: actualUploaded,
+        uploaded: uploadedCount,
+        failed: uploadFailedCount,
         skipped_invalid: skippedCount,
         skipped_duplicates: duplicateCount,
-        job_id: jobId,
-        ccai_response: response.data
+        upload_errors: uploadErrors,
+        job_id: jobId
       });
 
     } catch (uploadError) {

@@ -10,6 +10,27 @@ export default function Step2Upload({ campaign, dncEnabled, user, onBack, onCont
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  const handleDownloadSample = async (e) => {
+    e.preventDefault();
+    try {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+      const downloadUrl = `${backendUrl}/api/campaigns/download-sample`;
+
+      console.log('Downloading sample file from:', downloadUrl);
+
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = 'Sample_Customer_Upload.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Error downloading sample file:', err);
+      setError('Failed to download sample file');
+    }
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -95,12 +116,51 @@ export default function Step2Upload({ campaign, dncEnabled, user, onBack, onCont
 
       <div style={styles.section}>
         <label style={styles.label}>Select File</label>
-        <input
-          type="file"
-          accept=".xlsx,.xls"
-          onChange={handleFileChange}
-          style={{ ...styles.input, padding: '14px' }}
-        />
+
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileChange}
+            style={{ ...styles.input, padding: '14px', flex: 1 }}
+          />
+
+          <a
+            href="#"
+            onClick={handleDownloadSample}
+            style={{
+              background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+              border: '2px solid #d1d5db',
+              borderRadius: '12px',
+              padding: '14px 20px',
+              color: '#374151',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '14px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.background = 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)';
+              e.target.style.transform = 'translateY(-1px)';
+              e.target.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)';
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
+            }}
+          >
+            <span style={{ fontSize: '16px' }}>📥</span>
+            <span>Sample File</span>
+          </a>
+        </div>
+
         {excelFileName && (
           <p style={{ marginTop: '10px', color: '#6b7280', fontSize: '13px' }}>
             📎 <strong>{excelFileName}</strong>

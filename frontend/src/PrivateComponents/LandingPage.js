@@ -51,7 +51,8 @@ const LandingPage = () => {
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'Europe/London'
     });
   };
 

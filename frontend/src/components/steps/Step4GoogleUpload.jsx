@@ -25,19 +25,30 @@ export default function Step4GoogleUpload({ campaign, dncEnabled, validationResu
 
     setLoading(true);
     setError("");
-    setMessage("Uploading validated contacts to CCAI...");
+    setMessage("Clearing existing contacts and uploading new validated contacts to CCAI...");
 
     try {
       console.log('Starting upload to CCAI for campaign:', campaign.id);
 
       const data = await api.post('/campaigns/upload-to-ccai', {
-        campaignId: campaign.id
+        campaignId: campaign.id,
+        clearExisting: true  // Clear fake/existing data before upload
       });
 
       console.log('CCAI upload response:', data);
 
       if (data.success) {
-        setMessage(`✅ Successfully uploaded ${data.uploaded} contacts to CCAI!`);
+        let successMessage = `✅ Successfully uploaded ${data.uploaded} contacts to CCAI!`;
+
+        if (data.failed > 0) {
+          successMessage += ` ${data.failed} failed.`;
+        }
+
+        if (data.skipped_invalid > 0 || data.skipped_duplicates > 0) {
+          successMessage += ` (Skipped: ${data.skipped_invalid} invalid, ${data.skipped_duplicates} duplicates)`;
+        }
+
+        setMessage(successMessage);
         setValidationResult({ ...validationResult, uploaded: true });
       } else {
         setError(data.error || "CCAI upload failed");

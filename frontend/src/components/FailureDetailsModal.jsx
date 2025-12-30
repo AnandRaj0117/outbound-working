@@ -18,9 +18,9 @@ const FailureDetailsModal = ({ isOpen, onClose, failedRecords }) => {
         <table style={styles.table}>
           <thead>
             <tr style={styles.headerRow}>
-              <th style={styles.headerCell}>Row #</th>
+              <th style={styles.headerCellFirst}>Row #</th>
               <th style={styles.headerCell}>Reason</th>
-              <th style={styles.headerCell}>Impacted Data</th>
+              <th style={styles.headerCellLast}>Impacted Data</th>
             </tr>
           </thead>
           <tbody>
@@ -107,8 +107,9 @@ const styles = {
   },
   tableWrapper: {
     overflowX: 'auto',
-    border: '1px solid #e5e7eb',
+    border: '2px solid #4d216d',
     borderRadius: '12px',
+    overflow: 'hidden',
   },
   table: {
     width: '100%',
@@ -116,14 +117,31 @@ const styles = {
     fontSize: '14px',
   },
   headerRow: {
-    background: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+    background: '#4d216d',
     color: 'white',
+    borderBottom: '2px solid #4d216d',
   },
   headerCell: {
     padding: '14px',
     textAlign: 'left',
     fontWeight: '600',
     fontSize: '14px',
+    borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  headerCellFirst: {
+    padding: '14px',
+    textAlign: 'left',
+    fontWeight: '600',
+    fontSize: '14px',
+    borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+    borderTopLeftRadius: '10px',
+  },
+  headerCellLast: {
+    padding: '14px',
+    textAlign: 'left',
+    fontWeight: '600',
+    fontSize: '14px',
+    borderTopRightRadius: '10px',
   },
   evenRow: {
     background: '#ffffff',
@@ -134,12 +152,14 @@ const styles = {
   cell: {
     padding: '14px',
     borderBottom: '1px solid #e5e7eb',
+    borderRight: '1px solid #e5e7eb',
     fontWeight: '600',
     color: '#6b7280',
   },
   reasonCell: {
     padding: '14px',
     borderBottom: '1px solid #e5e7eb',
+    borderRight: '1px solid #e5e7eb',
   },
   dataCell: {
     padding: '14px',
