@@ -47,16 +47,32 @@ const FailureDetailsModal = ({ isOpen, onClose, failedRecords }) => {
 const renderImpactedData = (data) => {
   if (!data) return <em style={{ color: '#9ca3af' }}>No data available</em>;
 
+  // Filter out empty/null values and "empty" strings
+  const validEntries = Object.entries(data).filter(([key, value]) => {
+    return value !== null &&
+           value !== undefined &&
+           value !== '' &&
+           value !== 'empty' &&
+           String(value).trim() !== '';
+  });
+
+  if (validEntries.length === 0) {
+    return <em style={{ color: '#9ca3af' }}>No data available</em>;
+  }
+
+  const displayEntries = validEntries.slice(0, 3);
+  const remainingCount = validEntries.length - 3;
+
   return (
     <div style={styles.dataPreview}>
-      {Object.entries(data).slice(0, 3).map(([key, value]) => (
+      {displayEntries.map(([key, value]) => (
         <div key={key} style={styles.dataItem}>
-          <strong>{key}:</strong> {value || <em style={{ color: '#9ca3af' }}>empty</em>}
+          <strong>{key}:</strong> {value}
         </div>
       ))}
-      {Object.keys(data).length > 3 && (
+      {remainingCount > 0 && (
         <div style={styles.moreData}>
-          +{Object.keys(data).length - 3} more field(s)
+          +{remainingCount} more field(s)
         </div>
       )}
     </div>

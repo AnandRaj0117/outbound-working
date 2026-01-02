@@ -414,12 +414,12 @@ app.post(
       return res.status(200).json({
         success: true,
         uploaded: totalValidatedData,
-        total: totalUploaded + failedRecords.length, // Include all rows from file
+        total: rawRows.length, // Total rows in Excel file (excluding header)
         failed: failedRecords.length,
         failedRows: failedRecords.map((f) => f.row), // For backward compatibility
         failedRecords: failedRecords, // Detailed failure information
         fileUrl,
-        totalRecordsInFile: totalUploaded + failedRecords.length,
+        totalRecordsInFile: rawRows.length,
         uniqueRecordsSaved: totalValidatedData,
         duplicateCount: failedRecords.filter(f => f.reason.includes('Duplicate')).length,
         dncApplied: !!isDNCSelected,
