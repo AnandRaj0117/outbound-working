@@ -11,6 +11,7 @@ export default function Step4GoogleUpload({ campaign, dncEnabled, validationResu
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [showFailureModal, setShowFailureModal] = useState(false);
+  const [uploadFailures, setUploadFailures] = useState([]);
 
   const handleUploadToGoogle = async () => {
     if (!validationResult || validationResult.validated === 0) {
@@ -49,9 +50,11 @@ export default function Step4GoogleUpload({ campaign, dncEnabled, validationResu
         }
 
         setMessage(successMessage);
+        setUploadFailures(data.failedRecords || []);
         setValidationResult({ ...validationResult, uploaded: true });
       } else {
         setError(data.error || "CCAI upload failed");
+        setUploadFailures(data.failedRecords || []);
       }
     } catch (err) {
       console.error('Upload error:', err);
@@ -148,7 +151,27 @@ export default function Step4GoogleUpload({ campaign, dncEnabled, validationResu
         <SuccessBox message="🎉 Upload completed successfully!" />
       )}
 
-      {message && <MessageBox message={message} />}
+      {message && (
+        <div>
+          <MessageBox message={message} />
+          {uploadFailures.length > 0 && (
+            <div style={{ marginTop: '10px', textAlign: 'center' }}>
+              <span
+                onClick={() => setShowFailureModal(true)}
+                style={{
+                  color: '#7c3aed',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '14px'
+                }}
+              >
+                View Upload Failure Details
+              </span>
+            </div>
+          )}
+        </div>
+      )}
       <ErrorBox error={error} />
 
       <div style={styles.footer}>
@@ -157,12 +180,23 @@ export default function Step4GoogleUpload({ campaign, dncEnabled, validationResu
         </button>
       </div>
 
-      {/* Failure Details Modal */}
-      <FailureDetailsModal
-        isOpen={showFailureModal}
-        onClose={() => setShowFailureModal(false)}
-        failedRecords={validationResult.failedRecords || []}
-      />
+      {/* Validation Failure Details Modal (Step 3) */}
+      {validationResult.failedRecords && validationResult.failedRecords.length > 0 && (
+        <FailureDetailsModal
+          isOpen={showFailureModal && uploadFailures.length === 0}
+          onClose={() => setShowFailureModal(false)}
+          failedRecords={validationResult.failedRecords || []}
+        />
+      )}
+
+      {/* Upload Failure Details Modal (Step 4 - CCAI Upload) */}
+      {uploadFailures.length > 0 && (
+        <FailureDetailsModal
+          isOpen={showFailureModal}
+          onClose={() => setShowFailureModal(false)}
+          failedRecords={uploadFailures}
+        />
+      )}
     </div>
   );
 }

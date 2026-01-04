@@ -359,8 +359,8 @@ export default function DashboardHome({ user }) {
             onMouseEnter={(e) => e.target.style.background = '#3d1a57'}
             onMouseLeave={(e) => e.target.style.background = '#4d216d'}
           >
-            <span style={{ fontSize: '18px' }}>+</span>
-            Create Campaign
+            <span style={{ fontSize: '18px' }}></span>
+            Upload Data in Campaign
           </button>
         </div>
 

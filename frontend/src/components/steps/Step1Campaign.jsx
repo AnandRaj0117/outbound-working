@@ -212,11 +212,11 @@ export default function Step1Campaign({ onContinue, campaign, setCampaign, dncEn
         <div style={styles.infoBox}>
           <h3 style={styles.infoTitle}>📋 Campaign Details</h3>
           <div style={styles.infoRow}>
-            <strong>ID:</strong>
+            <strong>Campaign ID:</strong>
             <span>{campaign.id}</span>
           </div>
           <div style={styles.infoRow}>
-            <strong>Name:</strong>
+            <strong>Campaign Name:</strong>
             <span>{campaign.name}</span>
           </div>
 

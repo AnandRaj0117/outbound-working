@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css?family=Muli');
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap');
 body, html {
   margin: 0;
   padding: 0;
   overflow: auto;
-  font-family: muli, Helvetica, sans-serif;
+  font-family: 'Source Sans Pro', sans-serif;
   font-size: 15px;
   /* background: rgb(77, 33, 109);
     background: linear-gradient(56deg, rgba(77, 33, 109, 1) 0%, rgba(143, 107, 181, 1) 100%); */
@@ -312,7 +312,7 @@ table tbody tr:nth-child(even) {
   flex-grow: 1;
   color: #4d216d;
   font-weight: bold;
-  font-size: 19px;
+  font-size: 18px;
 }
  .accordion-open-title{
   text-align: center;

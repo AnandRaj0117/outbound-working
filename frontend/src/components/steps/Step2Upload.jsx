@@ -122,8 +122,8 @@ export default function Step2Upload({ campaign, dncEnabled, user, onBack, onCont
       </div>
 
       <div style={styles.section}>
-        <label style={styles.label}>Select File</label>
-
+        
+       <br/>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
           <input
             type="file"
@@ -163,8 +163,8 @@ export default function Step2Upload({ campaign, dncEnabled, user, onBack, onCont
               e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
             }}
           >
-            <span style={{ fontSize: '16px' }}>📥</span>
-            <span>Sample File</span>
+            
+            Sample File
           </a>
         </div>
 

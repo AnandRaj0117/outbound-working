@@ -18,7 +18,7 @@ const FailureDetailsModal = ({ isOpen, onClose, failedRecords }) => {
         <table style={styles.table}>
           <thead>
             <tr style={styles.headerRow}>
-              <th style={styles.headerCellFirst}>Row #</th>
+              <th style={styles.headerCellFirst}>Row / Customer ID</th>
               <th style={styles.headerCell}>Reason</th>
               <th style={styles.headerCellLast}>Impacted Data</th>
             </tr>
@@ -26,7 +26,7 @@ const FailureDetailsModal = ({ isOpen, onClose, failedRecords }) => {
           <tbody>
             {failedRecords.map((record, index) => (
               <tr key={index} style={index % 2 === 0 ? styles.evenRow : styles.oddRow}>
-                <td style={styles.cell}>{record.row}</td>
+                <td style={styles.cell}>{record.row || record.customerId || 'N/A'}</td>
                 <td style={styles.reasonCell}>
                   <span style={getReasonStyle(record.reason)}>
                     {getReasonIcon(record.reason)} {record.reason}

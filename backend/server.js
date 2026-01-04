@@ -1268,33 +1268,32 @@ app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
       });
     }
 
-    // Filter for records with phone numbers
-    const validRecords = snapshot.docs.filter(doc => {
-      const data = doc.data();
-      return data.phoneNumber && data.phoneNumber !== null;
-    });
-
-    if (validRecords.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'No validated data with phone numbers found for this campaign'
-      });
-    }
-
-    console.log(`📊 Found ${validRecords.length} validated records with phone numbers`);
+    console.log(`📊 Found ${snapshot.docs.length} validated records`);
 
     // Generate JSON file with CCAI's required format
     // CCAI requires: phone_number (NOT phone!), name, external_unique_id
     const contacts = [];
+    const failedRecords = [];
+    const successfulDocs = []; // Track docs that will be uploaded
 
     // Track unique phone numbers to prevent duplicates
     const uniquePhones = new Set();
-    let duplicateCount = 0;
-    let skippedCount = 0;
+    const phoneToCustomerMap = new Map(); // Track which customer ID has which phone
 
-    for (const doc of validRecords) {
+    for (const doc of snapshot.docs) {
       const data = doc.data();
-      let phoneNumber = data.phoneNumber || '';
+
+      // Check if phone number is missing
+      if (!data.phoneNumber || data.phoneNumber === null || data.phoneNumber === '') {
+        failedRecords.push({
+          customerId: data.customerId,
+          reason: 'Phone number not available for customer',
+          data: { customerId: data.customerId }
+        });
+        continue;
+      }
+
+      let phoneNumber = data.phoneNumber;
 
       // Clean and format phone number for CCAI (E.164 format)
       // Remove all spaces, dashes, parentheses
@@ -1308,18 +1307,28 @@ app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
       // Skip invalid phone numbers (must have at least country code + number)
       if (!phoneNumber || phoneNumber.length < 8) {
         console.warn(`⚠️ Skipping invalid phone number for customer ${data.customerId}: ${data.phoneNumber}`);
-        skippedCount++;
+        failedRecords.push({
+          customerId: data.customerId,
+          reason: 'Invalid phone number format',
+          data: { customerId: data.customerId, phoneNumber: data.phoneNumber }
+        });
         continue;
       }
 
-      // Skip duplicate phone numbers (CCAI will reject them)
+      // Check for duplicate phone numbers (CCAI will reject them)
       if (uniquePhones.has(phoneNumber)) {
-        console.warn(`⚠️ Skipping duplicate phone number: ${phoneNumber} (customer ${data.customerId})`);
-        duplicateCount++;
+        const firstCustomerId = phoneToCustomerMap.get(phoneNumber);
+        console.warn(`⚠️ Duplicate phone number: ${phoneNumber} found for customers ${firstCustomerId} and ${data.customerId}`);
+        failedRecords.push({
+          customerId: data.customerId,
+          reason: `Duplicate phone number - already assigned to customer ${firstCustomerId}`,
+          data: { customerId: data.customerId, phoneNumber: phoneNumber }
+        });
         continue;
       }
 
       uniquePhones.add(phoneNumber);
+      phoneToCustomerMap.set(phoneNumber, data.customerId);
       const customerName = data.campaignName || `Customer ${data.customerId}`;
 
       // CCAI JSON format
@@ -1328,7 +1337,13 @@ app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
         phone_number: phoneNumber,
         external_unique_id: data.customerId || null
       });
+
+      // Track successful doc for Firestore update
+      successfulDocs.push(doc);
     }
+
+    const duplicateCount = failedRecords.filter(f => f.reason.includes('Duplicate')).length;
+    const skippedCount = failedRecords.filter(f => f.reason.includes('Invalid') || f.reason.includes('not available')).length;
 
     if (skippedCount > 0) {
       console.warn(`⚠️ Skipped ${skippedCount} contacts with invalid phone numbers`);
@@ -1343,7 +1358,9 @@ app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'No valid unique contacts to upload after filtering',
-        totalRecords: validRecords.length,
+        totalRecords: snapshot.docs.length,
+        failed: failedRecords.length,
+        failedRecords: failedRecords,
         skippedInvalid: skippedCount,
         skippedDuplicates: duplicateCount
       });
@@ -1422,8 +1439,8 @@ app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
       // Only mark the successfully uploaded ones
       const successfullyUploaded = contacts.length - uploadErrors.length;
 
-      for (let i = 0; i < validRecords.length; i++) {
-        const doc = validRecords[i];
+      for (let i = 0; i < successfulDocs.length; i++) {
+        const doc = successfulDocs[i];
         batch.update(doc.ref, {
           uploaded_to_ccai: true,
           uploaded_to_ccai_at: new Date(),
@@ -1465,9 +1482,10 @@ app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
       res.status(200).json({
         success: true,
         message: `Upload to CCAI completed via bulk import. ${uploadedCount} contacts uploaded successfully.`,
-        total: validRecords.length,
+        total: snapshot.docs.length,
         uploaded: uploadedCount,
-        failed: uploadFailedCount,
+        failed: failedRecords.length,
+        failedRecords: failedRecords,
         skipped_invalid: skippedCount,
         skipped_duplicates: duplicateCount,
         upload_errors: uploadErrors,
