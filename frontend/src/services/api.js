@@ -8,7 +8,8 @@ const api = {
     const res = await fetch(`${API_BASE}${url}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+      credentials: 'include'  // Send cookies with request
     });
     return res.json();
   },
@@ -16,13 +17,16 @@ const api = {
   postFile: async (url, formData) => {
     const res = await fetch(`${API_BASE}${url}`, {
       method: 'POST',
-      body: formData
+      body: formData,
+      credentials: 'include'  // Send cookies with request
     });
     return res.json();
   },
 
   get: async (url) => {
-    const res = await fetch(`${API_BASE}${url}`);
+    const res = await fetch(`${API_BASE}${url}`, {
+      credentials: 'include'  // Send cookies with request
+    });
     return res.json();
   }
 };

@@ -155,6 +155,42 @@ module.exports = function(app, dependencies) {
     }
   }
 
+  // ========== AUTHENTICATION MIDDLEWARE ==========
+
+  /**
+   * Middleware to protect API routes from unauthorized access.
+   * - Allows access in local development mode (USE_LOCAL_AUTH=true)
+   * - Requires SAML authentication in production
+   * - Returns 401 Unauthorized if user is not authenticated
+   */
+  function isAuthenticated(req, res, next) {
+    // Allow access in local development mode
+    const isLocalDev = process.env.USE_LOCAL_AUTH === 'true';
+    if (isLocalDev) {
+      console.log('🔓 Local dev mode - bypassing authentication');
+      return next();
+    }
+
+    // Check if user is authenticated via passport/session
+    if (req.isAuthenticated && req.isAuthenticated()) {
+      console.log('✅ User authenticated:', req.user?.email || 'Unknown');
+      return next();
+    }
+
+    // Alternative check for session user
+    if (req.user) {
+      console.log('✅ User authenticated (via session):', req.user.email || 'Unknown');
+      return next();
+    }
+
+    // User is not authenticated
+    console.log('❌ Unauthorized API access attempt:', req.path);
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'You must be authenticated to access this resource'
+    });
+  }
+
   // ========== ROUTES ==========
 
   app.get('/', async (req, res) => {
@@ -166,7 +202,7 @@ module.exports = function(app, dependencies) {
   });
 
   // ========== 📥 DOWNLOAD SAMPLE EXCEL FILE ==========
-  app.get('/api/campaigns/download-sample', (req, res) => {
+  app.get('/api/campaigns/download-sample', isAuthenticated, (req, res) => {
     try {
       console.log('📥 Sending sample Excel file...');
 
@@ -218,6 +254,7 @@ module.exports = function(app, dependencies) {
   // FormData: file (Excel), dnc (true/false), uploadedBy (string), campaignId (string)
   app.post(
     '/api/campaigns/upload-excel',
+    isAuthenticated,
     upload.single('file'),
     validateExcel,
     async (req, res) => {
@@ -342,8 +379,11 @@ module.exports = function(app, dependencies) {
           }
           seen.add(row.customerId);
 
-          // Remove temporary tracking fields before saving
-          const { _originalRow, _rowNumber, ...cleanRow } = row;
+          // Keep row number for failure tracking, remove only _originalRow
+          const { _originalRow, ...cleanRow } = row;
+          // Rename _rowNumber to excelRowNumber for clarity
+          cleanRow.excelRowNumber = row._rowNumber;
+          delete cleanRow._rowNumber;
           uniqueRows.push(cleanRow);
         }
 
@@ -503,7 +543,7 @@ module.exports = function(app, dependencies) {
   // ========== 1.2️⃣ CUSTOMER API - Validation Endpoint ==========
 
   // Validate all customers for a campaign and fetch phone numbers
-  app.post('/api/campaigns/validate-customers', async (req, res) => {
+  app.post('/api/campaigns/validate-customers', isAuthenticated, async (req, res) => {
     try {
       const { campaignId } = req.body;
 
@@ -563,7 +603,7 @@ module.exports = function(app, dependencies) {
         if (!customerId) {
           failCount++;
           failedRecords.push({
-            row: recordIndex,
+            row: data.excelRowNumber || recordIndex,
             reason: 'Missing customerId',
             data: {
               customerId: customerId || 'N/A',
@@ -617,7 +657,7 @@ module.exports = function(app, dependencies) {
           }
 
           failedRecords.push({
-            row: recordIndex,
+            row: data.excelRowNumber || recordIndex,
             reason: failureReason,
             data: {
               customerId: customerId,
@@ -703,7 +743,7 @@ module.exports = function(app, dependencies) {
   // ========== 2️⃣ CCAI OUTBOUND DIALER - CAMPAIGN APIs ==========
 
   // ------ a) Fetch all campaigns and store in Firestore ------
-  app.get('/api/ccai/campaigns', async (req, res) => {
+  app.get('/api/ccai/campaigns', isAuthenticated, async (req, res) => {
     try {
       const url = `${CCAI_BASE_URL}/manager/api/v1/outbound_dialer/campaigns`;
       console.log(`📞 Fetching campaigns from CCAI: ${url}`);
@@ -771,7 +811,7 @@ module.exports = function(app, dependencies) {
   });
 
   // ------ b) Fetch single campaign and store in Firestore ------
-  app.get('/api/ccai/campaigns/:campaignId', async (req, res) => {
+  app.get('/api/ccai/campaigns/:campaignId', isAuthenticated, async (req, res) => {
     try {
       const { campaignId } = req.params;
       const url = `${CCAI_BASE_URL}/manager/api/v1/outbound_dialer/campaigns/${campaignId}`;
@@ -857,7 +897,7 @@ module.exports = function(app, dependencies) {
   });
 
   // ------ NEW: Get all campaigns with upload data for table ------
-  app.get('/api/campaigns/uploads', async (req, res) => {
+  app.get('/api/campaigns/uploads', isAuthenticated, async (req, res) => {
     try {
       // Fetch all campaign selections from Firestore
       const campaignSelectionsSnapshot = await firestore
@@ -945,7 +985,7 @@ module.exports = function(app, dependencies) {
   });
 
   // ------ NEW: Download original Excel file ------
-  app.get('/api/campaigns/:campaignId/download', async (req, res) => {
+  app.get('/api/campaigns/:campaignId/download', isAuthenticated, async (req, res) => {
     try {
       const { campaignId } = req.params;
 
@@ -1017,7 +1057,7 @@ module.exports = function(app, dependencies) {
   });
 
   // ------ c) Store campaign selection (called when user clicks Continue in Step 1) ------
-  app.post('/api/campaigns/store-selection', async (req, res) => {
+  app.post('/api/campaigns/store-selection', isAuthenticated, async (req, res) => {
     try {
       const { campaignId, campaignName, dncEnabled } = req.body;
 
@@ -1076,7 +1116,7 @@ module.exports = function(app, dependencies) {
   });
 
   // ------ d) Fetch contacts for a campaign ------
-  app.get('/api/ccai/campaigns/:campaignId/contacts', async (req, res) => {
+  app.get('/api/ccai/campaigns/:campaignId/contacts', isAuthenticated, async (req, res) => {
     try {
       const { campaignId } = req.params;
       const url = `${CCAI_BASE_URL}/apps/api/v1/outbound_dialer/campaigns/${campaignId}/contacts`;
@@ -1091,7 +1131,7 @@ module.exports = function(app, dependencies) {
   });
 
   // ------ NEW: Get campaign summary with contact counts ------
-  app.get('/api/ccai/campaigns/:campaignId/summary', async (req, res) => {
+  app.get('/api/ccai/campaigns/:campaignId/summary', isAuthenticated, async (req, res) => {
     try {
       const { campaignId } = req.params;
 
@@ -1137,7 +1177,7 @@ module.exports = function(app, dependencies) {
   });
 
   // ------ d) Add a single contact ------
-  app.post('/api/ccai/campaigns/:campaignId/contacts', async (req, res) => {
+  app.post('/api/ccai/campaigns/:campaignId/contacts', isAuthenticated, async (req, res) => {
     try {
       const { campaignId } = req.params;
       const contactData = req.body; // { name, phone_number, email, ... }
@@ -1161,7 +1201,7 @@ module.exports = function(app, dependencies) {
   });
 
   // ------ NEW: Upload validated data to CCAI (Step 4) - Using CCAI CSV Format ------
-  app.post('/api/campaigns/upload-to-ccai', async (req, res) => {
+  app.post('/api/campaigns/upload-to-ccai', isAuthenticated, async (req, res) => {
     try {
       const { campaignId, clearExisting = true } = req.body;
 
@@ -1249,6 +1289,7 @@ module.exports = function(app, dependencies) {
         // Check if phone number is missing
         if (!data.phoneNumber || data.phoneNumber === null || data.phoneNumber === '') {
           failedRecords.push({
+            row: data.excelRowNumber || data.customerId,
             customerId: data.customerId,
             reason: 'Phone number not available for customer',
             data: { customerId: data.customerId }
@@ -1271,6 +1312,7 @@ module.exports = function(app, dependencies) {
         if (!phoneNumber || phoneNumber.length < 8) {
           console.warn(`⚠️ Skipping invalid phone number for customer ${data.customerId}: ${data.phoneNumber}`);
           failedRecords.push({
+            row: data.excelRowNumber || data.customerId,
             customerId: data.customerId,
             reason: 'Invalid phone number format',
             data: { customerId: data.customerId, phoneNumber: data.phoneNumber }
@@ -1283,6 +1325,7 @@ module.exports = function(app, dependencies) {
           const firstCustomerId = phoneToCustomerMap.get(phoneNumber);
           console.warn(`⚠️ Duplicate phone number: ${phoneNumber} found for customers ${firstCustomerId} and ${data.customerId}`);
           failedRecords.push({
+            row: data.excelRowNumber || data.customerId,
             customerId: data.customerId,
             reason: `Duplicate phone number - already assigned to customer ${firstCustomerId}`,
             data: { customerId: data.customerId, phoneNumber: phoneNumber }
@@ -1538,6 +1581,7 @@ module.exports = function(app, dependencies) {
   // Frontend sends a file (CSV/JSON accepted by CCAI)
   app.post(
     '/api/ccai/campaigns/:campaignId/contacts/import',
+    isAuthenticated,
     upload.single('file'),
     async (req, res) => {
       try {
@@ -1576,6 +1620,7 @@ module.exports = function(app, dependencies) {
   // ------ f) Check job status ------
   app.get(
     '/api/ccai/campaigns/:campaignId/jobs/:jobId',
+    isAuthenticated,
     async (req, res) => {
       try {
         const { campaignId, jobId } = req.params;
@@ -1593,7 +1638,7 @@ module.exports = function(app, dependencies) {
   );
 
   // ------ g) Update a contact ------
-  app.patch('/api/ccai/campaigns/:campaignId/contact', async (req, res) => {
+  app.patch('/api/ccai/campaigns/:campaignId/contact', isAuthenticated, async (req, res) => {
     try {
       const { campaignId } = req.params;
       const contactData = req.body; // { contact_id, name, ... }
@@ -1619,6 +1664,7 @@ module.exports = function(app, dependencies) {
   // ------ h) Delete a contact ------
   app.delete(
     '/api/ccai/campaigns/:campaignId/contact/:contactId',
+    isAuthenticated,
     async (req, res) => {
       try {
         const { campaignId, contactId } = req.params;
