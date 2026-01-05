@@ -354,23 +354,57 @@ module.exports = function(app, dependencies) {
         // ----- 5. Update campaign_selections with counts -----
         const campaignSelectionRef = firestore.collection('campaign_selections').doc(String(campaignId));
 
+        // Check if this campaign has already completed a full flow (CCAI upload exists)
+        const existingCampaignDoc = await campaignSelectionRef.get();
+        const existingData = existingCampaignDoc.exists ? existingCampaignDoc.data() : null;
+
+        const hasPreviousCCAIUpload = existingData && (
+          existingData.ccai_upload_date ||
+          existingData.upload_to_ccai_completed_at ||
+          (existingData.uploaded_to_ccai && existingData.uploaded_to_ccai > 0)
+        );
+
         const duplicateCount = failedRecords.filter(f => f.reason.includes('Duplicate')).length;
 
-        await campaignSelectionRef.set({
-          TotalUploaded: totalUploaded,
-          TotalValidatedData: totalValidatedData,
-          duplicates_count: duplicateCount,
-          duplicates_data: failedRecords.filter(f => f.reason.includes('Duplicate')),
-          fileUrl: fileUrl,
-          fileName: destination,
-          originalFileName: originalName,
-          uploadedBy: uploadedBy || 'Unknown',
-          dnc_enabled: isDNCSelected,
-          last_upload_at: new Date(),
-          excel_uploaded_at: new Date()
-        }, { merge: true });
+        if (hasPreviousCCAIUpload) {
+          // Campaign already completed before - DON'T update counts (keep old data visible)
+          // Only update file info and upload timestamp
+          console.log(`⚠️ Campaign ${campaignId} has previous completed flow - preserving old counts in table`);
 
-        console.log(`✅ Updated campaign_selections/${campaignId} with counts`);
+          await campaignSelectionRef.set({
+            fileUrl: fileUrl,
+            fileName: destination,
+            originalFileName: originalName,
+            uploadedBy: uploadedBy || 'Unknown',
+            dnc_enabled: isDNCSelected,
+            last_upload_at: new Date(),
+            excel_uploaded_at: new Date(),
+            // Store new counts in temporary fields (for Step 4 to use)
+            pending_TotalUploaded: totalUploaded,
+            pending_TotalValidatedData: totalValidatedData,
+            pending_duplicates_count: duplicateCount,
+            pending_duplicates_data: failedRecords.filter(f => f.reason.includes('Duplicate'))
+          }, { merge: true });
+
+          console.log(`✅ Updated campaign_selections/${campaignId} - kept old counts, stored new in pending fields`);
+        } else {
+          // New campaign or never completed - update counts normally
+          await campaignSelectionRef.set({
+            TotalUploaded: totalUploaded,
+            TotalValidatedData: totalValidatedData,
+            duplicates_count: duplicateCount,
+            duplicates_data: failedRecords.filter(f => f.reason.includes('Duplicate')),
+            fileUrl: fileUrl,
+            fileName: destination,
+            originalFileName: originalName,
+            uploadedBy: uploadedBy || 'Unknown',
+            dnc_enabled: isDNCSelected,
+            last_upload_at: new Date(),
+            excel_uploaded_at: new Date()
+          }, { merge: true });
+
+          console.log(`✅ Updated campaign_selections/${campaignId} with counts (new campaign)`);
+        }
 
         // ----- 6. Check for existing data and delete if found -----
         const validatedDataCollection = firestore.collection('validated_campaign_data');
@@ -611,13 +645,37 @@ module.exports = function(app, dependencies) {
         .collection('campaign_selections')
         .doc(String(campaignId));
 
-      await campaignSelectionRef.set({
-        customers_validated: successCount,
-        customers_failed: failCount,
-        invalid_customers_count: failCount,
-        invalid_customers_data: failedRecords,
-        validation_completed_at: new Date()
-      }, { merge: true });
+      // Check if campaign has previous completed flow
+      const existingCampaignDoc = await campaignSelectionRef.get();
+      const existingData = existingCampaignDoc.exists ? existingCampaignDoc.data() : null;
+
+      const hasPreviousCCAIUpload = existingData && (
+        existingData.ccai_upload_date ||
+        existingData.upload_to_ccai_completed_at ||
+        (existingData.uploaded_to_ccai && existingData.uploaded_to_ccai > 0)
+      );
+
+      if (hasPreviousCCAIUpload) {
+        // Has previous completed flow - store in pending fields
+        await campaignSelectionRef.set({
+          pending_customers_validated: successCount,
+          pending_customers_failed: failCount,
+          pending_invalid_customers_count: failCount,
+          pending_invalid_customers_data: failedRecords,
+          pending_validation_completed_at: new Date()
+        }, { merge: true });
+        console.log(`✅ Validation stats stored in pending fields (preserving old data)`);
+      } else {
+        // New campaign - update normally
+        await campaignSelectionRef.set({
+          customers_validated: successCount,
+          customers_failed: failCount,
+          invalid_customers_count: failCount,
+          invalid_customers_data: failedRecords,
+          validation_completed_at: new Date()
+        }, { merge: true });
+        console.log(`✅ Validation stats updated (new campaign)`);
+      }
 
       console.log(`✅ Customer validation complete: ${successCount} success, ${failCount} failed`);
 
@@ -818,6 +876,20 @@ module.exports = function(app, dependencies) {
 
       for (const doc of campaignSelectionsSnapshot.docs) {
         const data = doc.data();
+
+        // Show campaigns that have completed at least ONE full flow
+        // Only skip campaigns that have NEVER been uploaded to CCAI
+        const ccaiUploadDate = data.ccai_upload_date || data.upload_to_ccai_completed_at;
+        const hasUploadedToCCAI = (data.uploaded_to_ccai || 0) > 0;
+
+        // Skip ONLY if campaign has NEVER been uploaded to CCAI
+        if (!ccaiUploadDate && !hasUploadedToCCAI) {
+          console.log(`Skipping campaign (never uploaded to CCAI): ${doc.id}`);
+          continue;
+        }
+
+        // If campaign has been uploaded to CCAI at least once, show it
+        // (Even if there's a new incomplete upload, show the last completed data)
 
         // Convert Firestore Timestamps to ISO strings
         const convertTimestamp = (timestamp) => {
@@ -1359,7 +1431,12 @@ module.exports = function(app, dependencies) {
         const ccaiDuplicatesData = failedRecords.filter(f => f.reason.includes('Duplicate phone'));
         const ccaiDuplicatesCount = ccaiDuplicatesData.length;
 
-        await campaignSelectionRef.set({
+        // Get existing data to check for pending fields
+        const existingCampaignDoc = await campaignSelectionRef.get();
+        const existingData = existingCampaignDoc.exists ? existingCampaignDoc.data() : {};
+
+        // Prepare update object - move pending fields to main fields
+        const updateData = {
           uploaded_to_ccai: uploadedCount,
           upload_to_ccai_failed: uploadFailedCount + duplicateCount + skippedCount,
           ccai_duplicates_count: ccaiDuplicatesCount,
@@ -1367,7 +1444,45 @@ module.exports = function(app, dependencies) {
           upload_to_ccai_completed_at: new Date(),
           ccai_upload_date: new Date(),
           ccai_job_id: jobId
-        }, { merge: true });
+        };
+
+        // Move pending fields to main fields (if they exist)
+        if (existingData.pending_TotalUploaded !== undefined) {
+          updateData.TotalUploaded = existingData.pending_TotalUploaded;
+          updateData.pending_TotalUploaded = null; // Clear pending
+        }
+        if (existingData.pending_TotalValidatedData !== undefined) {
+          updateData.TotalValidatedData = existingData.pending_TotalValidatedData;
+          updateData.pending_TotalValidatedData = null;
+        }
+        if (existingData.pending_duplicates_count !== undefined) {
+          updateData.duplicates_count = existingData.pending_duplicates_count;
+          updateData.pending_duplicates_count = null;
+        }
+        if (existingData.pending_duplicates_data !== undefined) {
+          updateData.duplicates_data = existingData.pending_duplicates_data;
+          updateData.pending_duplicates_data = null;
+        }
+        if (existingData.pending_customers_validated !== undefined) {
+          updateData.customers_validated = existingData.pending_customers_validated;
+          updateData.pending_customers_validated = null;
+        }
+        if (existingData.pending_customers_failed !== undefined) {
+          updateData.customers_failed = existingData.pending_customers_failed;
+          updateData.pending_customers_failed = null;
+        }
+        if (existingData.pending_invalid_customers_count !== undefined) {
+          updateData.invalid_customers_count = existingData.pending_invalid_customers_count;
+          updateData.pending_invalid_customers_count = null;
+        }
+        if (existingData.pending_invalid_customers_data !== undefined) {
+          updateData.invalid_customers_data = existingData.pending_invalid_customers_data;
+          updateData.pending_invalid_customers_data = null;
+        }
+
+        await campaignSelectionRef.set(updateData, { merge: true });
+
+        console.log(`✅ CCAI upload complete - moved all pending fields to main fields`);
 
         // Clean up temp file
         if (fs.existsSync(jsonFilePath)) {
