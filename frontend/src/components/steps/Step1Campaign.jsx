@@ -138,7 +138,7 @@ export default function Step1Campaign({ onContinue, campaign, setCampaign, dncEn
       </h2>
 
       <div style={styles.section}>
-        <label style={styles.label}>Campaign ID (Leave empty to fetch all campaigns)</label>
+        <label style={styles.label}>Campaign ID (Click fetch to see all the existing campaigns)</label>
         <div style={styles.inputGroup}>
           <input
             type="text"

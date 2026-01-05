@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import api from "../../services/api";
+import api, { API_BASE } from "../../services/api";
 import { styles } from "../../styles/dashboardStyles";
 import { ErrorBox, MessageBox } from "../MessageBoxes";
 
@@ -13,15 +13,14 @@ export default function Step2Upload({ campaign, dncEnabled, user, onBack, onCont
   const handleDownloadSample = async (e) => {
     e.preventDefault();
     try {
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
-      const downloadUrl = `${backendUrl}/api/campaigns/download-sample`;
+      const downloadUrl = `${API_BASE}/campaigns/download-sample`;
 
       console.log('Downloading sample file from:', downloadUrl);
 
       // Create a temporary link and trigger download
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = 'Sample_Customer_Upload.xlsx';
+      link.download = 'CustomerId.xlsx';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

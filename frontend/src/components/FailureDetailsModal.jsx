@@ -18,7 +18,7 @@ const FailureDetailsModal = ({ isOpen, onClose, failedRecords }) => {
         <table style={styles.table}>
           <thead>
             <tr style={styles.headerRow}>
-              <th style={styles.headerCellFirst}>Row / Customer ID</th>
+              <th style={styles.headerCellFirst}>Row in the Uploaded Excel</th>
               <th style={styles.headerCell}>Reason</th>
               <th style={styles.headerCellLast}>Impacted Data</th>
             </tr>

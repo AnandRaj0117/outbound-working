@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Download } from "lucide-react";
+import FailureDetailsModal from "../components/FailureDetailsModal";
 
 const _rawApiBase = process.env.REACT_APP_API_URL || process.env.REACT_APP_BASE_URL;
 const API_BASE = _rawApiBase
@@ -17,6 +18,8 @@ const api = {
 export default function DashboardHome({ user }) {
   const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState([]);
+  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [modalFailures, setModalFailures] = useState([]);
 
   // const handleLogout = () => {
   //   onLogout();
@@ -55,6 +58,12 @@ export default function DashboardHome({ user }) {
         totalUploaded: campaign.totalUploaded,
         totalValidated: campaign.totalValidated,
         uploadedInCCAIp: campaign.uploadedToCCAI,
+        duplicatesCount: campaign.duplicatesCount || 0,
+        duplicatesData: campaign.duplicatesData || [],
+        invalidCount: campaign.invalidCount || 0,
+        invalidData: campaign.invalidData || [],
+        ccaiDuplicatesCount: campaign.ccaiDuplicatesCount || 0,
+        ccaiDuplicatesData: campaign.ccaiDuplicatesData || [],
       }));
 
       setCampaigns(formattedCampaigns);
@@ -83,6 +92,13 @@ export default function DashboardHome({ user }) {
   const handleDownload = (campaignId) => {
     // Download the original Excel file
     window.location.href = `${API_BASE}/campaigns/${campaignId}/download`;
+  };
+
+  const handleShowFailures = (failuresData, type) => {
+    if (failuresData && failuresData.length > 0) {
+      setModalFailures(failuresData);
+      setShowFailureModal(true);
+    }
   };
 
   // Pagination logic
@@ -208,6 +224,16 @@ export default function DashboardHome({ user }) {
     th: {
       background: '#4d216d',
       padding: '16px',
+      textAlign: 'center',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: 'white',
+      borderBottom: '2px solid #e5e7eb',
+      whiteSpace: 'nowrap'
+    },
+    thLeft: {
+      background: '#4d216d',
+      padding: '16px',
       textAlign: 'left',
       fontSize: '13px',
       fontWeight: '700',
@@ -219,7 +245,22 @@ export default function DashboardHome({ user }) {
       padding: '16px',
       fontSize: '14px',
       color: '#1f2937',
-      borderBottom: '1px solid #e5e7eb'
+      borderBottom: '1px solid #e5e7eb',
+      textAlign: 'center'
+    },
+    tdLeft: {
+      padding: '16px',
+      fontSize: '14px',
+      color: '#1f2937',
+      borderBottom: '1px solid #e5e7eb',
+      textAlign: 'left'
+    },
+    tdClickable: {
+      padding: '16px',
+      fontSize: '14px',
+      color: '#1f2937',
+      borderBottom: '1px solid #e5e7eb',
+      textAlign: 'center'
     },
     actionButton: {
       background: '#4D216D',
@@ -385,9 +426,10 @@ export default function DashboardHome({ user }) {
                     <th style={styles.th}>Campaign Name</th>
                     <th style={styles.th}>DNC</th>
                     <th style={styles.th}>Total Uploaded</th>
-                    <th style={styles.th}>Total Validated</th>
+                    <th style={styles.th}>Duplicate</th>
+                    <th style={styles.th}>Invalid</th>
+                    <th style={styles.th}>CCAIP Duplicates</th>
                     <th style={styles.th}>Uploaded in CCAIP</th>
-                    <th style={styles.th}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -396,7 +438,7 @@ export default function DashboardHome({ user }) {
                       <td style={styles.td}>{campaign.timestamp}</td>
                       <td style={styles.td}>{campaign.userName}</td>
                       <td style={styles.td}>{campaign.campaignId}</td>
-                      <td style={styles.td}>{campaign.campaignName}</td>
+                      <td style={styles.tdLeft}>{campaign.campaignName}</td>
                       <td style={styles.td}>
                         <span style={{
                           ...styles.badge,
@@ -405,20 +447,27 @@ export default function DashboardHome({ user }) {
                           {campaign.dnc}
                         </span>
                       </td>
-                      <td style={styles.td}>{campaign.totalUploaded.toLocaleString()}</td>
-                      <td style={styles.td}>{campaign.totalValidated.toLocaleString()}</td>
-                      <td style={styles.td}>{campaign.uploadedInCCAIp.toLocaleString()}</td>
-                      <td style={styles.td}>
-                        <button
-                          onClick={() => handleDownload(campaign.campaignId)}
-                          style={styles.actionButton}
-                          onMouseEnter={(e) => e.target.style.background = '#3d1a57'}
-                          onMouseLeave={(e) => e.target.style.background = '#4D216D'}
-                        >
-                          <Download size={16} />
-                          Download
-                        </button>
+                      <td style={styles.tdClickable} onClick={() => handleDownload(campaign.campaignId)}>
+                        <span style={{ cursor: 'pointer', color: '#7c3aed', textDecoration: 'underline' }}>
+                          {campaign.totalUploaded.toLocaleString()}
+                        </span>
                       </td>
+                      <td style={styles.tdClickable} onClick={() => handleShowFailures(campaign.duplicatesData, 'Duplicate')}>
+                        <span style={{ cursor: campaign.duplicatesCount > 0 ? 'pointer' : 'default', color: campaign.duplicatesCount > 0 ? '#7c3aed' : 'inherit', textDecoration: campaign.duplicatesCount > 0 ? 'underline' : 'none' }}>
+                          {campaign.duplicatesCount.toLocaleString()}
+                        </span>
+                      </td>
+                      <td style={styles.tdClickable} onClick={() => handleShowFailures(campaign.invalidData, 'Invalid')}>
+                        <span style={{ cursor: campaign.invalidCount > 0 ? 'pointer' : 'default', color: campaign.invalidCount > 0 ? '#7c3aed' : 'inherit', textDecoration: campaign.invalidCount > 0 ? 'underline' : 'none' }}>
+                          {campaign.invalidCount.toLocaleString()}
+                        </span>
+                      </td>
+                      <td style={styles.tdClickable} onClick={() => handleShowFailures(campaign.ccaiDuplicatesData, 'CCAIP Duplicates')}>
+                        <span style={{ cursor: campaign.ccaiDuplicatesCount > 0 ? 'pointer' : 'default', color: campaign.ccaiDuplicatesCount > 0 ? '#7c3aed' : 'inherit', textDecoration: campaign.ccaiDuplicatesCount > 0 ? 'underline' : 'none' }}>
+                          {campaign.ccaiDuplicatesCount.toLocaleString()}
+                        </span>
+                      </td>
+                      <td style={styles.td}>{campaign.uploadedInCCAIp.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -536,6 +585,13 @@ export default function DashboardHome({ user }) {
           )}
         </div>
       </div>
+
+      {/* Failure Details Modal */}
+      <FailureDetailsModal
+        isOpen={showFailureModal}
+        onClose={() => setShowFailureModal(false)}
+        failedRecords={modalFailures}
+      />
     </div>
   );
 }

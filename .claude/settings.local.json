@@ -3,7 +3,8 @@
     "allow": [
       "Bash(node generate-sample.js:*)",
       "Bash(npm install:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(git restore:*)"
     ]
   }
 }
