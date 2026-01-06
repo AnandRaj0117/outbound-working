@@ -476,8 +476,8 @@ export default function DashboardHome({ user }) {
                           {campaign.dnc}
                         </span>
                       </td>
-                      <td style={styles.tdClickable} onClick={() => handleDownload(campaign.campaignId)}>
-                        <span style={{ cursor: 'pointer', color: '#7c3aed', textDecoration: 'underline' }}>
+                      <td style={styles.td}>
+                        <span style={{ cursor: 'pointer', color: '#7c3aed', textDecoration: 'underline' }} onClick={() => handleDownload(campaign.campaignId)}>
                           {campaign.totalUploaded.toLocaleString()}
                         </span>
                       </td>

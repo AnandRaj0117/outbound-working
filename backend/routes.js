@@ -542,30 +542,32 @@ module.exports = function(app, dependencies) {
 
   // ========== 1.2️⃣ CUSTOMER API - Validation Endpoint ==========
 
-  // Validate all customers for a campaign and fetch phone numbers
-  app.post('/api/campaigns/validate-customers', isAuthenticated, async (req, res) => {
+  // Helper function to add delay between API calls (rate limiting)
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Background validation process
+  async function processCustomerValidation(campaignId, jobId) {
     try {
-      const { campaignId } = req.body;
+      console.log(`🔄 [Job ${jobId}] Starting background validation for campaign: ${campaignId}`);
 
-      if (!campaignId) {
-        return res.status(400).json({
-          success: false,
-          error: 'Campaign ID is required'
-        });
-      }
-
-      console.log(`🔍 Starting customer validation for campaign: ${campaignId}`);
+      // Update job status to processing
+      const jobRef = firestore.collection('validation_jobs').doc(jobId);
+      await jobRef.update({
+        status: 'processing',
+        started_at: new Date()
+      });
 
       // Get Azure AD token
       let token;
       try {
         token = await generateServiceToken();
       } catch (tokenError) {
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to get authentication token',
-          details: tokenError.message
+        await jobRef.update({
+          status: 'failed',
+          error: 'Failed to get authentication token: ' + tokenError.message,
+          completed_at: new Date()
         });
+        return;
       }
 
       // Get validated data for this campaign from Firestore
@@ -576,20 +578,26 @@ module.exports = function(app, dependencies) {
       const snapshot = await validatedDataQuery.get();
 
       if (snapshot.empty) {
-        return res.status(404).json({
-          success: false,
-          error: 'No validated data found for this campaign'
+        await jobRef.update({
+          status: 'failed',
+          error: 'No validated data found for this campaign',
+          completed_at: new Date()
         });
+        return;
       }
 
-      console.log(`📊 Found ${snapshot.size} records to validate`);
+      const totalRecords = snapshot.size;
+      console.log(`📊 [Job ${jobId}] Found ${totalRecords} records to validate`);
 
       // Process each customer record
-      const results = [];
       const failedRecords = [];
       let successCount = 0;
       let failCount = 0;
       let recordIndex = 0;
+
+      // Rate limiting configuration
+      const REQUESTS_PER_SECOND = 5; // Adjust based on API limits
+      const DELAY_BETWEEN_REQUESTS = 1000 / REQUESTS_PER_SECOND; // milliseconds
 
       // Use batch for Firestore updates
       let batch = firestore.batch();
@@ -615,8 +623,25 @@ module.exports = function(app, dependencies) {
           continue;
         }
 
-        // Call customer API to get phone number
-        const phoneResult = await getCustomerPhone(customerId, token);
+        // Call customer API to get phone number with retry logic
+        let phoneResult;
+        let retryCount = 0;
+        const MAX_RETRIES = 3;
+
+        while (retryCount < MAX_RETRIES) {
+          phoneResult = await getCustomerPhone(customerId, token);
+
+          // If rate limited (429), wait and retry
+          if (phoneResult.status === 429 && retryCount < MAX_RETRIES - 1) {
+            const waitTime = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+            console.log(`⏳ [Job ${jobId}] Rate limited, waiting ${waitTime}ms before retry ${retryCount + 1}/${MAX_RETRIES}`);
+            await delay(waitTime);
+            retryCount++;
+            continue;
+          }
+
+          break; // Success or non-429 error
+        }
 
         if (phoneResult.success && phoneResult.phone) {
           // Update Firestore with phone number
@@ -628,18 +653,12 @@ module.exports = function(app, dependencies) {
           });
 
           successCount++;
-          results.push({
-            customerId: customerId,
-            status: 'success',
-            phoneNumber: phoneResult.phone
-          });
-
           batchCount++;
 
           // Commit batch every 400 updates
           if (batchCount >= 400) {
             await batch.commit();
-            console.log(`💾 Committed batch of ${batchCount} updates`);
+            console.log(`💾 [Job ${jobId}] Committed batch of ${batchCount} updates`);
             batch = firestore.batch();
             batchCount = 0;
           }
@@ -649,10 +668,8 @@ module.exports = function(app, dependencies) {
           // Determine appropriate error message
           let failureReason;
           if (phoneResult.success && !phoneResult.phone) {
-            // API succeeded but no phone number in response
             failureReason = 'Phone number not available for customer';
           } else {
-            // API failed - use the user-friendly error we set
             failureReason = phoneResult.error || 'Customer validation failed - no error details available';
           }
 
@@ -666,18 +683,29 @@ module.exports = function(app, dependencies) {
               uploadedBy: data.uploadedBy
             }
           });
-          results.push({
-            customerId: customerId,
-            status: 'failed',
-            error: failureReason
+        }
+
+        // Update job progress every 10 records
+        if (recordIndex % 10 === 0 || recordIndex === totalRecords) {
+          await jobRef.update({
+            processed: recordIndex,
+            validated: successCount,
+            failed: failCount,
+            progress: Math.round((recordIndex / totalRecords) * 100)
           });
+          console.log(`📊 [Job ${jobId}] Progress: ${recordIndex}/${totalRecords} (${Math.round((recordIndex / totalRecords) * 100)}%)`);
+        }
+
+        // Rate limiting: Add delay between requests
+        if (recordIndex < totalRecords) {
+          await delay(DELAY_BETWEEN_REQUESTS);
         }
       }
 
       // Commit remaining updates
       if (batchCount > 0) {
         await batch.commit();
-        console.log(`💾 Committed final batch of ${batchCount} updates`);
+        console.log(`💾 [Job ${jobId}] Committed final batch of ${batchCount} updates`);
       }
 
       // Update campaign_selections with validation stats
@@ -704,7 +732,7 @@ module.exports = function(app, dependencies) {
           pending_invalid_customers_data: failedRecords,
           pending_validation_completed_at: new Date()
         }, { merge: true });
-        console.log(`✅ Validation stats stored in pending fields (preserving old data)`);
+        console.log(`✅ [Job ${jobId}] Validation stats stored in pending fields (preserving old data)`);
       } else {
         // New campaign - update normally
         await campaignSelectionRef.set({
@@ -714,27 +742,152 @@ module.exports = function(app, dependencies) {
           invalid_customers_data: failedRecords,
           validation_completed_at: new Date()
         }, { merge: true });
-        console.log(`✅ Validation stats updated (new campaign)`);
+        console.log(`✅ [Job ${jobId}] Validation stats updated (new campaign)`);
       }
 
-      console.log(`✅ Customer validation complete: ${successCount} success, ${failCount} failed`);
-
-      res.status(200).json({
-        success: true,
-        message: 'Customer validation completed',
-        total: snapshot.size,
+      // Mark job as completed
+      await jobRef.update({
+        status: 'completed',
+        completed_at: new Date(),
+        total: totalRecords,
         validated: successCount,
         failed: failCount,
-        failedRecords: failedRecords, // Detailed failure information
-        failedRows: failedRecords.map(f => f.row), // For backward compatibility
-        results: results.slice(0, 10) // Return first 10 for preview
+        failedRecords: failedRecords
+      });
+
+      console.log(`✅ [Job ${jobId}] Customer validation complete: ${successCount} success, ${failCount} failed`);
+
+    } catch (error) {
+      console.error(`❌ [Job ${jobId}] Error in background validation:`, error);
+
+      // Update job status to failed
+      try {
+        await firestore.collection('validation_jobs').doc(jobId).update({
+          status: 'failed',
+          error: error.message,
+          completed_at: new Date()
+        });
+      } catch (updateError) {
+        console.error(`❌ [Job ${jobId}] Failed to update job status:`, updateError);
+      }
+    }
+  }
+
+  // Start customer validation job (returns immediately)
+  app.post('/api/campaigns/validate-customers', isAuthenticated, async (req, res) => {
+    try {
+      const { campaignId } = req.body;
+
+      if (!campaignId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Campaign ID is required'
+        });
+      }
+
+      console.log(`🔍 Starting customer validation job for campaign: ${campaignId}`);
+
+      // Get validated data count
+      const validatedDataQuery = firestore
+        .collection('validated_campaign_data')
+        .where('campaign_id_ref', '==', String(campaignId));
+
+      const snapshot = await validatedDataQuery.get();
+
+      if (snapshot.empty) {
+        return res.status(404).json({
+          success: false,
+          error: 'No validated data found for this campaign'
+        });
+      }
+
+      const totalRecords = snapshot.size;
+
+      // Create validation job record
+      const jobRef = firestore.collection('validation_jobs').doc();
+      const jobId = jobRef.id;
+
+      await jobRef.set({
+        jobId: jobId,
+        campaignId: String(campaignId),
+        status: 'pending',
+        total: totalRecords,
+        processed: 0,
+        validated: 0,
+        failed: 0,
+        progress: 0,
+        created_at: new Date(),
+        started_at: null,
+        completed_at: null,
+        error: null
+      });
+
+      console.log(`✅ Created validation job: ${jobId} for ${totalRecords} records`);
+
+      // Start background processing (don't wait for it)
+      processCustomerValidation(campaignId, jobId).catch(err => {
+        console.error(`❌ Background validation failed for job ${jobId}:`, err);
+      });
+
+      // Return immediately with job ID
+      res.status(202).json({
+        success: true,
+        message: 'Customer validation started',
+        jobId: jobId,
+        total: totalRecords,
+        status: 'pending'
       });
 
     } catch (error) {
-      console.error('Error in customer validation:', error);
+      console.error('Error starting customer validation:', error);
       res.status(500).json({
         success: false,
-        error: 'Customer validation failed',
+        error: 'Failed to start customer validation',
+        details: error.message
+      });
+    }
+  });
+
+  // Check validation job status
+  app.get('/api/campaigns/validate-customers/status/:jobId', isAuthenticated, async (req, res) => {
+    try {
+      const { jobId } = req.params;
+
+      const jobDoc = await firestore.collection('validation_jobs').doc(jobId).get();
+
+      if (!jobDoc.exists) {
+        return res.status(404).json({
+          success: false,
+          error: 'Job not found'
+        });
+      }
+
+      const jobData = jobDoc.data();
+
+      res.status(200).json({
+        success: true,
+        job: {
+          jobId: jobData.jobId,
+          campaignId: jobData.campaignId,
+          status: jobData.status,
+          total: jobData.total,
+          processed: jobData.processed,
+          validated: jobData.validated,
+          failed: jobData.failed,
+          progress: jobData.progress,
+          failedRecords: jobData.failedRecords || [],
+          error: jobData.error,
+          created_at: jobData.created_at,
+          started_at: jobData.started_at,
+          completed_at: jobData.completed_at
+        }
+      });
+
+    } catch (error) {
+      console.error('Error checking job status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check job status',
         details: error.message
       });
     }

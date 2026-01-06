@@ -238,7 +238,7 @@ export default function Step1Campaign({ onContinue, campaign, setCampaign, dncEn
             disabled={loading}
             style={{ ...styles.button, width: '100%', marginTop: '16px', padding: '14px' }}
           >
-            {loading ? "Saving..." : "Continue"}
+            {loading ? "Saving..." : "Continue to upload"}
           </button>
         </div>
       )}

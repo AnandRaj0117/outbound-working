@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { styles } from "../../styles/dashboardStyles";
@@ -11,6 +11,92 @@ export default function Step3Validate({ campaign, dncEnabled, uploadResult, onBa
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [showFailureModal, setShowFailureModal] = useState(false);
+
+  // Async job tracking
+  const [jobId, setJobId] = useState(null);
+  const [jobStatus, setJobStatus] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [processed, setProcessed] = useState(0);
+  const [total, setTotal] = useState(0);
+  const pollingIntervalRef = useRef(null);
+
+  // Poll for job status
+  const pollJobStatus = async (currentJobId) => {
+    try {
+      const data = await api.get(`/campaigns/validate-customers/status/${currentJobId}`);
+
+      if (data.success && data.job) {
+        const job = data.job;
+        setJobStatus(job.status);
+        setProgress(job.progress || 0);
+        setProcessed(job.processed || 0);
+        setTotal(job.total || 0);
+
+        // Update message based on status
+        if (job.status === 'processing') {
+          setMessage(`Validating customers: ${job.processed || 0}/${job.total || 0} (${job.progress || 0}%)`);
+        } else if (job.status === 'completed') {
+          // Job completed
+          setValidationResult({
+            validated: job.validated,
+            failed: job.failed,
+            total: job.total,
+            failedRecords: job.failedRecords || [],
+            failedRows: job.failedRecords?.map(f => f.row) || []
+          });
+
+          if (job.failed === 0) {
+            setMessage(`✅ All ${job.validated} records validated with phone numbers!`);
+          } else {
+            setMessage(`✅ ${job.validated} of ${job.total} records validated. ${job.failed} failed.`);
+          }
+
+          // Stop polling
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+
+          setLoading(false);
+          onContinue();
+        } else if (job.status === 'failed') {
+          // Job failed
+          setError(job.error || 'Validation job failed');
+
+          // Stop polling
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+
+          setLoading(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error polling job status:', err);
+      // Don't stop polling on network errors, just log them
+    }
+  };
+
+  // Start polling when jobId is set
+  useEffect(() => {
+    if (jobId && jobStatus !== 'completed' && jobStatus !== 'failed') {
+      // Poll every 2 seconds
+      pollingIntervalRef.current = setInterval(() => {
+        pollJobStatus(jobId);
+      }, 2000);
+
+      // Initial poll
+      pollJobStatus(jobId);
+
+      // Cleanup on unmount
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+      };
+    }
+  }, [jobId, jobStatus]);
 
   const handleValidateData = async () => {
     if (!uploadResult || uploadResult.uploaded === 0) {
@@ -25,7 +111,7 @@ export default function Step3Validate({ campaign, dncEnabled, uploadResult, onBa
 
     setLoading(true);
     setError("");
-    setMessage("Fetching phone numbers from Customer API...");
+    setMessage("Starting customer validation job...");
 
     try {
       console.log('Starting customer validation for campaign:', campaign.id);
@@ -36,29 +122,19 @@ export default function Step3Validate({ campaign, dncEnabled, uploadResult, onBa
 
       console.log('Customer validation response:', data);
 
-      if (data.success) {
-        setValidationResult({
-          validated: data.validated,
-          failed: data.failed,
-          total: data.total,
-          results: data.results || [],
-          failedRecords: data.failedRecords || [],
-          failedRows: data.failedRows || []
-        });
-
-        if (data.failed === 0) {
-          setMessage(`✅ All ${data.validated} records validated with phone numbers!`);
-        } else {
-          setMessage(`✅ ${data.validated} of ${data.total} records validated. ${data.failed} failed.`);
-        }
-        onContinue();
+      if (data.success && data.jobId) {
+        // Job started successfully
+        setJobId(data.jobId);
+        setTotal(data.total || 0);
+        setMessage(`Validation job started. Processing ${data.total} records...`);
+        // Keep loading=true, polling will handle completion
       } else {
-        setError(data.error || "Customer validation failed");
+        setError(data.error || "Failed to start validation job");
+        setLoading(false);
       }
     } catch (err) {
       console.error('Validation error:', err);
-      setError(`Validation failed: ${err.message}`);
-    } finally {
+      setError(`Failed to start validation: ${err.message}`);
       setLoading(false);
     }
   };
@@ -124,12 +200,63 @@ export default function Step3Validate({ campaign, dncEnabled, uploadResult, onBa
         <p style={{ fontSize: '14px', marginBottom: '16px', color: '#374151' }}>
           Continue to fetch telephone numbers for {uploadResult.uploaded} records
         </p>
+
+        {/* Progress bar */}
+        {loading && jobStatus === 'processing' && (
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginBottom: '8px',
+              fontSize: '14px',
+              color: '#374151',
+              fontWeight: '600'
+            }}>
+              <span>Processing...</span>
+              <span>{progress}%</span>
+            </div>
+            <div style={{
+              width: '100%',
+              height: '24px',
+              backgroundColor: '#e5e7eb',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              position: 'relative'
+            }}>
+              <div style={{
+                width: `${progress}%`,
+                height: '100%',
+                backgroundColor: '#4d216d',
+                transition: 'width 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: '12px',
+                fontWeight: '600'
+              }}>
+                {progress > 10 && `${processed}/${total}`}
+              </div>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={handleValidateData}
           disabled={loading}
-          style={{ ...styles.button, width: '100%', padding: '14px' }}
+          style={{
+            ...styles.button,
+            width: '100%',
+            padding: '14px',
+            opacity: loading ? 0.6 : 1,
+            cursor: loading ? 'not-allowed' : 'pointer'
+          }}
         >
-          {loading ? "Validating..." : "Continue"}
+          {loading ? (
+            jobStatus === 'processing'
+              ? `Validating... ${processed}/${total}`
+              : "Starting validation..."
+          ) : "Continue"}
         </button>
       </div>
 
