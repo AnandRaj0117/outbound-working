@@ -89,9 +89,38 @@ export default function DashboardHome({ user }) {
     }).replace(',', '');
   };
 
-  const handleDownload = (campaignId) => {
-    // Download the original Excel file
-    window.location.href = `${API_BASE}/campaigns/${campaignId}/download`;
+  const handleDownload = async (campaignId) => {
+    try {
+      // Download the original Excel file with authentication
+      const downloadUrl = `${API_BASE}/campaigns/${campaignId}/download`;
+
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        credentials: 'include'  // Send cookies with request
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+      }
+
+      // Get the file as a blob
+      const blob = await response.blob();
+
+      // Create object URL and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `campaign_${campaignId}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up object URL
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading campaign file:', err);
+      alert('Failed to download campaign file');
+    }
   };
 
   const handleShowFailures = (failuresData, type) => {

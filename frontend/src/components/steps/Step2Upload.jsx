@@ -17,13 +17,32 @@ export default function Step2Upload({ campaign, dncEnabled, user, onBack, onCont
 
       console.log('Downloading sample file from:', downloadUrl);
 
-      // Create a temporary link and trigger download
+      // Fetch file with authentication
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        credentials: 'include'  // Send cookies with request
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+      }
+
+      // Get the file as a blob
+      const blob = await response.blob();
+
+      // Create object URL and trigger download
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = 'CustomerId.xlsx';
+      link.href = url;
+      link.download = 'Sample_Customer_Upload.xlsx';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      // Clean up object URL
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ Sample file downloaded successfully');
     } catch (err) {
       console.error('Error downloading sample file:', err);
       setError('Failed to download sample file');
