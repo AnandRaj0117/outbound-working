@@ -456,6 +456,7 @@ export default function DashboardHome({ user }) {
                     <th style={styles.th}>Campaign Name</th>
                     <th style={styles.th}>DNC</th>
                     <th style={styles.th}>Total Uploaded</th>
+                    <th style={{ ...styles.th, border: 'none', background: '#4d216d' }}>Download</th>
                     <th style={styles.th}>Duplicate</th>
                     <th style={styles.th}>Invalid</th>
                     <th style={styles.th}>CCAIP Duplicates</th>
@@ -470,40 +471,25 @@ export default function DashboardHome({ user }) {
                       <td style={styles.td}>{campaign.campaignId}</td>
                       <td style={styles.tdLeft}>{campaign.campaignName}</td>
                       <td style={styles.td}>
-                        <span style={{
-                          ...styles.badge,
-                          ...(campaign.dnc === "Enabled" ? styles.badgeEnabled : styles.badgeDisabled)
-                        }}>
+                        <span style={{ color: '#374151', fontWeight: '500' }}>
                           {campaign.dnc}
                         </span>
                       </td>
                       <td style={styles.td}>
-                        <div
+                        {campaign.totalUploaded.toLocaleString()}
+                      </td>
+                      <td style={{ padding: '16px', border: 'none', textAlign: 'left' }}>
+                        <img
+                          src={downloadIcon}
+                          alt="Download"
                           style={{
+                            width: '20px',
+                            height: '20px',
                             cursor: 'pointer',
-                            color: '#7c3aed',
-                            textDecoration: 'underline',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px',
-                            fontWeight: '600'
+                            display: 'block'
                           }}
                           onClick={() => handleDownload(campaign.campaignId)}
-                        >
-                          <img
-                            src={downloadIcon}
-                            alt="Download"
-                            style={{
-                              width: '18px',
-                              height: '18px',
-                              flexShrink: 0
-                            }}
-                          />
-                          <span style={{ minWidth: '45px', textAlign: 'left' }}>
-                            {campaign.totalUploaded.toLocaleString()}
-                          </span>
-                        </div>
+                        />
                       </td>
                       <td style={styles.td}>
                         <span
