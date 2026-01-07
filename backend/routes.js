@@ -94,6 +94,19 @@ module.exports = function(app, dependencies) {
         timeout: 15000
       });
 
+      // ========== DETAILED LOGGING OF CUSTOMER API RESPONSE ==========
+      console.log('╔════════════════════════════════════════════════════════════════');
+      console.log('║ 📞 CUSTOMER API RESPONSE FOR:', customerId);
+      console.log('╠════════════════════════════════════════════════════════════════');
+      console.log('║ Full Response Data:');
+      console.log(JSON.stringify(response.data, null, 2));
+      console.log('╠════════════════════════════════════════════════════════════════');
+      console.log('║ Available Fields:');
+      console.log('║', Object.keys(response.data || {}).join(', '));
+      console.log('╠════════════════════════════════════════════════════════════════');
+      console.log('║ Extracted Phone:', response.data?.phone ?? 'NULL');
+      console.log('╚════════════════════════════════════════════════════════════════');
+
       return {
         success: true,
         customerId,
@@ -1053,9 +1066,10 @@ module.exports = function(app, dependencies) {
   app.get('/api/campaigns/uploads', isAuthenticated, async (req, res) => {
     try {
       // Fetch all campaign selections from Firestore
+      // Note: We fetch all and sort in-memory because we need to sort by ccai_upload_date
+      // which might be stored as either ccai_upload_date or upload_to_ccai_completed_at
       const campaignSelectionsSnapshot = await firestore
         .collection('campaign_selections')
-        .orderBy('last_upload_at', 'desc')
         .get();
 
       if (campaignSelectionsSnapshot.empty) {
@@ -1064,6 +1078,18 @@ module.exports = function(app, dependencies) {
           campaigns: []
         });
       }
+
+      // Convert Firestore Timestamps to ISO strings
+      const convertTimestamp = (timestamp) => {
+        if (!timestamp) return null;
+        if (timestamp.toDate) {
+          return timestamp.toDate().toISOString();
+        }
+        if (timestamp._seconds) {
+          return new Date(timestamp._seconds * 1000).toISOString();
+        }
+        return timestamp;
+      };
 
       const campaigns = [];
 
@@ -1083,18 +1109,6 @@ module.exports = function(app, dependencies) {
 
         // If campaign has been uploaded to CCAI at least once, show it
         // (Even if there's a new incomplete upload, show the last completed data)
-
-        // Convert Firestore Timestamps to ISO strings
-        const convertTimestamp = (timestamp) => {
-          if (!timestamp) return null;
-          if (timestamp.toDate) {
-            return timestamp.toDate().toISOString();
-          }
-          if (timestamp._seconds) {
-            return new Date(timestamp._seconds * 1000).toISOString();
-          }
-          return timestamp;
-        };
 
         campaigns.push({
           campaignId: doc.id,
@@ -1117,9 +1131,22 @@ module.exports = function(app, dependencies) {
           fileName: data.originalFileName || data.fileName || null,
           ccaiJobId: data.ccai_job_id || null,
           customersValidated: data.customers_validated || 0,
-          customersFailed: data.customers_failed || 0
+          customersFailed: data.customers_failed || 0,
+          // Store raw timestamp for sorting
+          _sortTimestamp: data.ccai_upload_date || data.upload_to_ccai_completed_at
         });
       }
+
+      // Sort by CCAI upload date (most recent first)
+      // This ensures correct order even when incomplete flows update last_upload_at
+      campaigns.sort((a, b) => {
+        const timeA = a._sortTimestamp?.toDate ? a._sortTimestamp.toDate().getTime() : new Date(a._sortTimestamp || 0).getTime();
+        const timeB = b._sortTimestamp?.toDate ? b._sortTimestamp.toDate().getTime() : new Date(b._sortTimestamp || 0).getTime();
+        return timeB - timeA; // Descending order (newest first)
+      });
+
+      // Remove the temporary sort field
+      campaigns.forEach(c => delete c._sortTimestamp);
 
       res.status(200).json({
         success: true,
