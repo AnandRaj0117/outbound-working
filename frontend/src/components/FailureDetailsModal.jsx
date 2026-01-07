@@ -47,6 +47,15 @@ const FailureDetailsModal = ({ isOpen, onClose, failedRecords }) => {
 const renderImpactedData = (data) => {
   if (!data) return <em style={{ color: '#9ca3af' }}>No data available</em>;
 
+  // Define field priority order for consistent display
+  const fieldPriority = {
+    'customerId': 1,
+    'phoneNumber': 2,
+    'campaignId': 3,
+    'campaignName': 4,
+    'uploadedBy': 5
+  };
+
   // Filter out empty/null values and "empty" strings
   const validEntries = Object.entries(data).filter(([key, value]) => {
     return value !== null &&
@@ -60,8 +69,21 @@ const renderImpactedData = (data) => {
     return <em style={{ color: '#9ca3af' }}>No data available</em>;
   }
 
-  const displayEntries = validEntries.slice(0, 3);
-  const remainingCount = validEntries.length - 3;
+  // Sort entries by priority (prioritized fields first, then alphabetically)
+  const sortedEntries = validEntries.sort((a, b) => {
+    const priorityA = fieldPriority[a[0]] || 999;
+    const priorityB = fieldPriority[b[0]] || 999;
+
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+
+    // If same priority (or both unprioritized), sort alphabetically
+    return a[0].localeCompare(b[0]);
+  });
+
+  const displayEntries = sortedEntries.slice(0, 3);
+  const remainingCount = sortedEntries.length - 3;
 
   return (
     <div style={styles.dataPreview}>

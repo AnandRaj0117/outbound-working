@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Download } from "lucide-react";
 import FailureDetailsModal from "../components/FailureDetailsModal";
+import downloadIcon from "../images/downloadIcon.png";
 
 const _rawApiBase = process.env.REACT_APP_API_URL || process.env.REACT_APP_BASE_URL;
 const API_BASE = _rawApiBase
@@ -477,22 +478,66 @@ export default function DashboardHome({ user }) {
                         </span>
                       </td>
                       <td style={styles.td}>
-                        <span style={{ cursor: 'pointer', color: '#7c3aed', textDecoration: 'underline' }} onClick={() => handleDownload(campaign.campaignId)}>
-                          {campaign.totalUploaded.toLocaleString()}
-                        </span>
+                        <div
+                          style={{
+                            cursor: 'pointer',
+                            color: '#7c3aed',
+                            textDecoration: 'underline',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            fontWeight: '600'
+                          }}
+                          onClick={() => handleDownload(campaign.campaignId)}
+                        >
+                          <img
+                            src={downloadIcon}
+                            alt="Download"
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              flexShrink: 0
+                            }}
+                          />
+                          <span style={{ minWidth: '45px', textAlign: 'left' }}>
+                            {campaign.totalUploaded.toLocaleString()}
+                          </span>
+                        </div>
                       </td>
-                      <td style={styles.tdClickable} onClick={() => handleShowFailures(campaign.duplicatesData, 'Duplicate')}>
-                        <span style={{ cursor: campaign.duplicatesCount > 0 ? 'pointer' : 'default', color: campaign.duplicatesCount > 0 ? '#7c3aed' : 'inherit', textDecoration: campaign.duplicatesCount > 0 ? 'underline' : 'none' }}>
+                      <td style={styles.td}>
+                        <span
+                          style={{
+                            cursor: campaign.duplicatesCount > 0 ? 'pointer' : 'default',
+                            color: campaign.duplicatesCount > 0 ? '#7c3aed' : 'inherit',
+                            textDecoration: campaign.duplicatesCount > 0 ? 'underline' : 'none'
+                          }}
+                          onClick={() => campaign.duplicatesCount > 0 && handleShowFailures(campaign.duplicatesData, 'Duplicate')}
+                        >
                           {campaign.duplicatesCount.toLocaleString()}
                         </span>
                       </td>
-                      <td style={styles.tdClickable} onClick={() => handleShowFailures(campaign.invalidData, 'Invalid')}>
-                        <span style={{ cursor: campaign.invalidCount > 0 ? 'pointer' : 'default', color: campaign.invalidCount > 0 ? '#7c3aed' : 'inherit', textDecoration: campaign.invalidCount > 0 ? 'underline' : 'none' }}>
+                      <td style={styles.td}>
+                        <span
+                          style={{
+                            cursor: campaign.invalidCount > 0 ? 'pointer' : 'default',
+                            color: campaign.invalidCount > 0 ? '#7c3aed' : 'inherit',
+                            textDecoration: campaign.invalidCount > 0 ? 'underline' : 'none'
+                          }}
+                          onClick={() => campaign.invalidCount > 0 && handleShowFailures(campaign.invalidData, 'Invalid')}
+                        >
                           {campaign.invalidCount.toLocaleString()}
                         </span>
                       </td>
-                      <td style={styles.tdClickable} onClick={() => handleShowFailures(campaign.ccaiDuplicatesData, 'CCAIP Duplicates')}>
-                        <span style={{ cursor: campaign.ccaiDuplicatesCount > 0 ? 'pointer' : 'default', color: campaign.ccaiDuplicatesCount > 0 ? '#7c3aed' : 'inherit', textDecoration: campaign.ccaiDuplicatesCount > 0 ? 'underline' : 'none' }}>
+                      <td style={styles.td}>
+                        <span
+                          style={{
+                            cursor: campaign.ccaiDuplicatesCount > 0 ? 'pointer' : 'default',
+                            color: campaign.ccaiDuplicatesCount > 0 ? '#7c3aed' : 'inherit',
+                            textDecoration: campaign.ccaiDuplicatesCount > 0 ? 'underline' : 'none'
+                          }}
+                          onClick={() => campaign.ccaiDuplicatesCount > 0 && handleShowFailures(campaign.ccaiDuplicatesData, 'CCAIP Duplicates')}
+                        >
                           {campaign.ccaiDuplicatesCount.toLocaleString()}
                         </span>
                       </td>
