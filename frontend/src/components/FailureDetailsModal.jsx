@@ -6,11 +6,18 @@ const FailureDetailsModal = ({ isOpen, onClose, failedRecords }) => {
     return null;
   }
 
+  // Sort by row number in ascending order
+  const sortedRecords = [...failedRecords].sort((a, b) => {
+    const rowA = parseInt(a.row) || 0;
+    const rowB = parseInt(b.row) || 0;
+    return rowA - rowB;
+  });
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Upload Failure Details">
       <div style={styles.summary}>
         <p style={styles.summaryText}>
-          <strong>{failedRecords.length}</strong> record(s) failed to upload. See details below:
+          <strong>{sortedRecords.length}</strong> record(s) failed to upload. See details below:
         </p>
       </div>
 
@@ -24,7 +31,7 @@ const FailureDetailsModal = ({ isOpen, onClose, failedRecords }) => {
             </tr>
           </thead>
           <tbody>
-            {failedRecords.map((record, index) => (
+            {sortedRecords.map((record, index) => (
               <tr key={index} style={index % 2 === 0 ? styles.evenRow : styles.oddRow}>
                 <td style={styles.cell}>{record.row || record.customerId || 'N/A'}</td>
                 <td style={styles.reasonCell}>
@@ -50,10 +57,7 @@ const renderImpactedData = (data) => {
   // Define field priority order for consistent display
   const fieldPriority = {
     'customerId': 1,
-    'phoneNumber': 2,
-    'campaignId': 3,
-    'campaignName': 4,
-    'uploadedBy': 5
+    'uploadedBy': 2
   };
 
   // Filter out empty/null values and "empty" strings

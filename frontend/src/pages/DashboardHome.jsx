@@ -456,7 +456,6 @@ export default function DashboardHome({ user }) {
                     <th style={styles.th}>Campaign Name</th>
                     <th style={styles.th}>DNC</th>
                     <th style={styles.th}>Total Uploaded</th>
-                    <th style={{ ...styles.th, border: 'none', background: '#4d216d' }}>Download</th>
                     <th style={styles.th}>Duplicate</th>
                     <th style={styles.th}>Invalid</th>
                     <th style={styles.th}>CCAIP Duplicates</th>
@@ -476,20 +475,22 @@ export default function DashboardHome({ user }) {
                         </span>
                       </td>
                       <td style={styles.td}>
-                        {campaign.totalUploaded.toLocaleString()}
-                      </td>
-                      <td style={{ padding: '16px', border: 'none', textAlign: 'left' }}>
-                        <img
-                          src={downloadIcon}
-                          alt="Download"
-                          style={{
-                            width: '20px',
-                            height: '20px',
-                            cursor: 'pointer',
-                            display: 'block'
-                          }}
-                          onClick={() => handleDownload(campaign.campaignId)}
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: '20px', paddingRight: '20px' }}>
+                          <span style={{ textAlign: 'left' }}>
+                            {campaign.totalUploaded.toLocaleString()}
+                          </span>
+                          <img
+                            src={downloadIcon}
+                            alt="Download"
+                            style={{
+                              width: '20px',
+                              height: '20px',
+                              cursor: 'pointer',
+                              flexShrink: 0
+                            }}
+                            onClick={() => handleDownload(campaign.campaignId)}
+                          />
+                        </div>
                       </td>
                       <td style={styles.td}>
                         <span

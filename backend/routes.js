@@ -338,7 +338,10 @@ module.exports = function(app, dependencies) {
             failedRecords.push({
               row: rowNumber,
               reason: 'Missing required field: customerId',
-              data: rawRow
+              data: {
+                customerId: 'N/A',
+                uploadedBy: uploadedBy || 'Unknown'
+              }
             });
             return; // Skip this row
           }
@@ -386,7 +389,10 @@ module.exports = function(app, dependencies) {
             failedRecords.push({
               row: row._rowNumber,
               reason: 'Duplicate customerId',
-              data: row._originalRow
+              data: {
+                customerId: row.customerId,
+                uploadedBy: uploadedBy || 'Unknown'
+              }
             });
             continue;
           }
@@ -628,8 +634,6 @@ module.exports = function(app, dependencies) {
             reason: 'Missing customerId',
             data: {
               customerId: customerId || 'N/A',
-              campaignId: data.campaignId,
-              campaignName: data.campaignName,
               uploadedBy: data.uploadedBy
             }
           });
@@ -691,8 +695,6 @@ module.exports = function(app, dependencies) {
             reason: failureReason,
             data: {
               customerId: customerId,
-              campaignId: data.campaignId,
-              campaignName: data.campaignName,
               uploadedBy: data.uploadedBy
             }
           });
@@ -1383,7 +1385,7 @@ module.exports = function(app, dependencies) {
   // ------ NEW: Upload validated data to CCAI (Step 4) - Using CCAI CSV Format ------
   app.post('/api/campaigns/upload-to-ccai', isAuthenticated, async (req, res) => {
     try {
-      const { campaignId, clearExisting = true } = req.body;
+      const { campaignId, clearExisting = false } = req.body; // ⚠️ CHANGED: Default to FALSE
 
       if (!campaignId) {
         return res.status(400).json({
@@ -1393,10 +1395,12 @@ module.exports = function(app, dependencies) {
       }
 
       console.log(`📤 Starting upload to CCAI for campaign: ${campaignId}`);
-      console.log(`🗑️  Clear existing contacts: ${clearExisting}`);
+      console.log(`🗑️  Clear existing contacts: ${clearExisting} (default: FALSE to prevent auto-completion)`);
 
       // STEP 1: Clear existing contacts if requested
       if (clearExisting) {
+        console.warn(`⚠️ WARNING: Clearing contacts is DISABLED by default as it may mark campaign as completed`);
+        console.warn(`⚠️ If you need to clear contacts, this feature needs to be re-enabled carefully`);
         try {
           console.log('🗑️  Fetching existing contacts to clear...');
           const contactsUrl = `${CCAI_BASE_URL}/apps/api/v1/outbound_dialer/campaigns/${campaignId}/contacts`;
@@ -1405,6 +1409,7 @@ module.exports = function(app, dependencies) {
 
           if (existingContacts.length > 0) {
             console.log(`🗑️  Found ${existingContacts.length} existing contacts. Deleting...`);
+            console.log(`⚠️  NOTE: This may cause campaign to be marked as completed!`);
 
             const deleteUrl = `${CCAI_BASE_URL}/apps/api/v1/outbound_dialer/campaigns/${campaignId}/contact`;
 
@@ -1432,6 +1437,8 @@ module.exports = function(app, dependencies) {
           console.warn(`⚠️  Error clearing existing contacts: ${clearError.message}`);
           // Continue with upload even if clearing fails
         }
+      } else {
+        console.log('ℹ️  Skipping contact clearing (clearExisting = false). New contacts will be added to existing ones.');
       }
 
       console.log(`📤 Starting upload to CCAI for campaign: ${campaignId}`);
@@ -1472,7 +1479,10 @@ module.exports = function(app, dependencies) {
             row: data.excelRowNumber || data.customerId,
             customerId: data.customerId,
             reason: 'Phone number not available for customer',
-            data: { customerId: data.customerId }
+            data: {
+              customerId: data.customerId,
+              uploadedBy: data.uploadedBy
+            }
           });
           continue;
         }
@@ -1495,7 +1505,10 @@ module.exports = function(app, dependencies) {
             row: data.excelRowNumber || data.customerId,
             customerId: data.customerId,
             reason: 'Invalid phone number format',
-            data: { customerId: data.customerId, phoneNumber: data.phoneNumber }
+            data: {
+              customerId: data.customerId,
+              uploadedBy: data.uploadedBy
+            }
           });
           continue;
         }
@@ -1508,7 +1521,10 @@ module.exports = function(app, dependencies) {
             row: data.excelRowNumber || data.customerId,
             customerId: data.customerId,
             reason: `Duplicate phone number - already assigned to customer ${firstCustomerId}`,
-            data: { customerId: data.customerId, phoneNumber: phoneNumber }
+            data: {
+              customerId: data.customerId,
+              uploadedBy: data.uploadedBy
+            }
           });
           continue;
         }
@@ -1584,6 +1600,9 @@ module.exports = function(app, dependencies) {
 
       try {
         console.log(`📤 Sending bulk import request...`);
+        console.log(`   Endpoint: ${importUrl}`);
+        console.log(`   Method: POST`);
+        console.log(`   Content-Type: multipart/form-data`);
 
         const response = await axios.post(importUrl, formData, {
           ...authConfig,
@@ -1597,7 +1616,9 @@ module.exports = function(app, dependencies) {
 
         console.log(`✅ CCAI bulk import successful!`);
         console.log(`   Status: ${response.status}`);
-        console.log(`   Response:`, JSON.stringify(response.data, null, 2));
+        console.log(`   Response Headers:`, JSON.stringify(response.headers, null, 2));
+        console.log(`   Response Data:`, JSON.stringify(response.data, null, 2));
+        console.log(`   ⚠️ NOTE: Check if CCAI response contains campaign status!`);
 
         // Extract job_id
         jobId = response.data?.job_id ||
@@ -1707,6 +1728,94 @@ module.exports = function(app, dependencies) {
 
         console.log(`✅ CCAI upload complete - moved all pending fields to main fields`);
 
+        // STEP 3: Set campaign status to "paused" after successful upload
+        try {
+          console.log(`⏸️  Attempting to set campaign status to "paused"...`);
+          console.log(`   Campaign ID: ${campaignId}`);
+
+          // Try multiple possible endpoints and methods
+          const possibleUpdates = [
+            // Method 1: PATCH with status field
+            {
+              method: 'patch',
+              url: `${CCAI_BASE_URL}/manager/api/v1/outbound_dialer/campaigns/${campaignId}`,
+              data: { status: 'paused' },
+              description: 'PATCH /manager/api/v1/ with status: "paused"'
+            },
+            // Method 2: PATCH with uppercase status
+            {
+              method: 'patch',
+              url: `${CCAI_BASE_URL}/manager/api/v1/outbound_dialer/campaigns/${campaignId}`,
+              data: { status: 'PAUSED' },
+              description: 'PATCH /manager/api/v1/ with status: "PAUSED"'
+            },
+            // Method 3: POST to pause endpoint
+            {
+              method: 'post',
+              url: `${CCAI_BASE_URL}/manager/api/v1/outbound_dialer/campaigns/${campaignId}/pause`,
+              data: {},
+              description: 'POST /manager/api/v1/.../pause'
+            },
+            // Method 4: Using apps API instead of manager
+            {
+              method: 'patch',
+              url: `${CCAI_BASE_URL}/apps/api/v1/outbound_dialer/campaigns/${campaignId}`,
+              data: { status: 'paused' },
+              description: 'PATCH /apps/api/v1/ with status: "paused"'
+            },
+            // Method 5: PUT request
+            {
+              method: 'put',
+              url: `${CCAI_BASE_URL}/manager/api/v1/outbound_dialer/campaigns/${campaignId}`,
+              data: { status: 'paused' },
+              description: 'PUT /manager/api/v1/ with status: "paused"'
+            }
+          ];
+
+          let success = false;
+          let lastError = null;
+
+          for (const attempt of possibleUpdates) {
+            try {
+              console.log(`   Trying: ${attempt.description}`);
+              console.log(`   URL: ${attempt.url}`);
+
+              const statusResponse = await axios({
+                method: attempt.method,
+                url: attempt.url,
+                data: attempt.data,
+                ...authConfig,
+                headers: {
+                  ...authConfig.headers,
+                  'Content-Type': 'application/json'
+                }
+              });
+
+              console.log(`✅ SUCCESS! Campaign status set to "paused" using: ${attempt.description}`);
+              console.log(`   Response Status: ${statusResponse.status}`);
+              console.log(`   Response Data:`, JSON.stringify(statusResponse.data, null, 2));
+              success = true;
+              break; // Stop trying other methods if one succeeds
+            } catch (err) {
+              console.log(`   ❌ Failed: ${err.response?.status || err.message}`);
+              lastError = err;
+              // Continue to next method
+            }
+          }
+
+          if (!success) {
+            console.warn(`⚠️  All attempts to set campaign status failed.`);
+            console.warn(`   Last error: ${lastError?.message}`);
+            if (lastError?.response) {
+              console.warn(`   Last response status: ${lastError.response.status}`);
+              console.warn(`   Last response data:`, JSON.stringify(lastError.response.data, null, 2));
+            }
+            console.warn(`   Please check CCAI API documentation for correct endpoint`);
+          }
+        } catch (statusError) {
+          console.error(`⚠️  Unexpected error setting campaign status: ${statusError.message}`);
+        }
+
         // Clean up temp file
         if (fs.existsSync(jsonFilePath)) {
           fs.unlinkSync(jsonFilePath);
@@ -1715,7 +1824,7 @@ module.exports = function(app, dependencies) {
 
         res.status(200).json({
           success: true,
-          message: `Upload to CCAI completed via bulk import. ${uploadedCount} contacts uploaded successfully.`,
+          message: `Upload to CCAI completed via bulk import. ${uploadedCount} contacts uploaded successfully. Campaign status set to "paused".`,
           total: snapshot.docs.length,
           uploaded: uploadedCount,
           failed: failedRecords.length,
